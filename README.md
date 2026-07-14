@@ -23,15 +23,25 @@ npm run build
 
 ## Cloudflare Pages 배포
 
-1. 이 프로젝트를 GitHub 저장소에 올립니다.
-2. Cloudflare 대시보드에서 **Workers & Pages → Create → Pages → Connect to Git**을 선택합니다.
-3. 저장소를 고른 뒤 아래 값을 입력합니다.
-   - Framework preset: `Vite`
-   - Build command: `npm run build`
-   - Build output directory: `dist`
+1. Cloudflare 대시보드에서 **Workers & Pages → Create → Pages → Connect to Git**을 선택합니다.
+2. GitHub 저장소 `dreamev5031/hangul-worksheet`를 선택합니다.
+3. 아래 값으로 프로젝트를 설정합니다.
+
+| 설정 | 값 |
+| --- | --- |
+| Project name | `hangul-worksheet` |
+| Production branch | `main` |
+| Framework preset | `Vite` |
+| Build command | `npm run build` |
+| Build output directory | `dist` |
+| Root directory | 비워 둠 |
+| Environment variables | 없음 |
+
 4. **Save and Deploy**를 누릅니다.
 
 서버 기능이나 환경 변수는 필요하지 않습니다. `main` 브랜치에 변경 사항을 올리면 Cloudflare Pages가 자동으로 다시 배포합니다.
+
+Vite의 `base`는 `/`로 설정되어 있어 `https://hangul-worksheet.pages.dev/`의 루트 경로에서 정적 자산을 정상적으로 불러옵니다. 이 프로젝트는 React Router 기반 SPA가 아니라 `/about/`, `/privacy/` 같은 각 경로에 실제 `index.html`을 생성하는 정적 멀티페이지 구조이므로 Cloudflare Pages에서 해당 주소를 새로고침해도 SPA fallback 설정이 필요하지 않습니다. 존재하지 않는 주소에는 빌드된 `404.html`이 사용됩니다.
 
 ## 주요 기능
 
@@ -48,13 +58,13 @@ npm run build
 
 사이트에는 `/about/`, `/privacy/`, `/terms/`, `/contact/`, `/guide/`, `/faq/`와 `404.html`이 포함됩니다. 각 페이지는 고유한 title, description, Open Graph 태그와 canonical URL을 갖는 정적 HTML로 빌드됩니다.
 
-실제 도메인이 정해지면 Cloudflare Pages 환경 변수에 아래 값을 추가하세요.
+기본 canonical URL은 프로젝트 이름에 맞춘 `https://hangul-worksheet.pages.dev`입니다. 나중에 사용자 정의 도메인을 연결한다면 Cloudflare Pages 환경 변수에 아래 값을 추가하세요.
 
 ```text
 VITE_SITE_URL=https://your-domain.com
 ```
 
-`public/robots.txt`와 `public/sitemap.xml`의 `https://example.com`도 실제 도메인으로 바꿔야 합니다. 문의 주소는 `src/config.ts`의 `CONTACT_EMAIL` 상수에서 변경할 수 있습니다.
+사용자 정의 도메인을 연결할 때는 `public/robots.txt`와 `public/sitemap.xml`의 `https://hangul-worksheet.pages.dev`도 새 도메인으로 바꿔야 합니다. 문의 주소는 `src/config.ts`의 `CONTACT_EMAIL` 상수에서 변경할 수 있습니다.
 
 ## AdSense 신청 전 확인할 것
 
