@@ -85,3 +85,5 @@ VITE_SITE_URL=https://your-domain.com
 - [ ] 배포 직전 `npm run build`가 성공하는지 확인
 
 현재 프로젝트에는 실제 광고 코드, 분석 코드, 외부 추적 스크립트, 로그인, 쿠키 기반 사용자 추적 기능이 없습니다.
+
+Cloudflare Pages deployment check
