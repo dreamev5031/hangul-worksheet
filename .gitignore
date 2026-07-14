@@ -1,0 +1,11 @@
+.agents
+.codex
+node_modules
+dist
+.npm-cache
+work
+outputs
+.env
+.env.local
+*.local
+.DS_Store
