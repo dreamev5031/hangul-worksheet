@@ -1,5 +1,6 @@
 import { forwardRef } from 'react'
 import type { WorksheetSettings } from '../types'
+import AutoFitText from './AutoFitText'
 
 interface WorksheetPreviewProps {
   settings: WorksheetSettings
@@ -29,7 +30,7 @@ function getTraceRowCount(settings: WorksheetSettings) {
 const WorksheetPreview = forwardRef<HTMLDivElement, WorksheetPreviewProps>(
   ({ settings, words }, ref) => {
     const visibleItems = words.length > 0 ? words : ['가']
-    const sizeClass = `letters-${settings.letterSize}`
+    const sizeClass = 'letters-' + settings.letterSize
     const traceRowCount = getTraceRowCount(settings)
     const showStudentFields = settings.showNameField || settings.showDateField
     const hasSingleStudentField = settings.showNameField !== settings.showDateField
@@ -50,7 +51,7 @@ const WorksheetPreview = forwardRef<HTMLDivElement, WorksheetPreviewProps>(
         <div className="paper-stage">
           <div
             ref={ref}
-            className={`worksheet-page ${sizeClass}`}
+            className={'worksheet-page ' + sizeClass}
             data-density={visibleItems.length > 4 ? 'dense' : 'comfortable'}
           >
             <div className="worksheet-topline" />
@@ -63,7 +64,7 @@ const WorksheetPreview = forwardRef<HTMLDivElement, WorksheetPreviewProps>(
             </header>
 
             {showStudentFields && (
-              <div className={`student-fields ${hasSingleStudentField ? 'single-field' : ''}`}>
+              <div className={'student-fields ' + (hasSingleStudentField ? 'single-field' : '')}>
                 {settings.showNameField && <span>이름 <i /></span>}
                 {settings.showDateField && <span>날짜 <i /></span>}
               </div>
@@ -74,7 +75,10 @@ const WorksheetPreview = forwardRef<HTMLDivElement, WorksheetPreviewProps>(
               <i />
             </div>
 
-            <div className="worksheet-words">
+            <div
+              className="worksheet-words"
+              style={{ gridTemplateRows: 'repeat(' + visibleItems.length + ', minmax(0, 1fr))' }}
+            >
               {visibleItems.map((item, itemIndex) => {
                 const kind = getPracticeItemKind(item)
                 const blankLabel = kind === 'sentence' ? '문장을 써 보세요' : '혼자 써 보기'
@@ -83,11 +87,15 @@ const WorksheetPreview = forwardRef<HTMLDivElement, WorksheetPreviewProps>(
                   <article
                     className="word-practice"
                     data-kind={kind}
-                    key={`${item}-${itemIndex}`}
+                    key={item + '-' + itemIndex}
                   >
                     <div className="word-display">
-                      <span>{String(itemIndex + 1).padStart(2, '0')}</span>
-                      <strong>{item}</strong>
+                      <span className="word-index">{String(itemIndex + 1).padStart(2, '0')}</span>
+                      <AutoFitText
+                        className="display-text"
+                        fitKey={settings.letterSize}
+                        text={item}
+                      />
                     </div>
 
                     <div className="writing-lines">
@@ -95,11 +103,17 @@ const WorksheetPreview = forwardRef<HTMLDivElement, WorksheetPreviewProps>(
                         const isTraceLine = lineIndex < traceRowCount
                         return (
                           <div
-                            className={`writing-line ${isTraceLine ? 'trace-line' : 'blank-line'}`}
+                            className={'writing-line ' + (isTraceLine ? 'trace-line' : 'blank-line')}
                             key={lineIndex}
                           >
                             {isTraceLine
-                              ? <span className="trace-word">{item}</span>
+                              ? (
+                                  <AutoFitText
+                                    className="trace-word"
+                                    fitKey={settings.letterSize}
+                                    text={item}
+                                  />
+                                )
                               : <span className="blank-label">{blankLabel}</span>}
                             <span className="baseline" />
                           </div>

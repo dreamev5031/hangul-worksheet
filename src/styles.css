@@ -157,39 +157,47 @@ textarea:focus { border-color: var(--mint); box-shadow: 0 0 0 4px rgba(94, 158, 
 .student-fields.single-field { grid-template-columns: 1fr; }
 .today-label { margin: 4.8% 0 2.6%; display: flex; align-items: center; gap: 10px; color: var(--mint-dark); font-size: clamp(8px, 1.15vw, 13px); font-weight: 850; }
 .today-label i { height: 1px; flex: 1; background: var(--mint-soft); }
-.worksheet-words { min-height: 0; flex: 1; display: flex; flex-direction: column; justify-content: space-evenly; gap: 2.4%; }
-.word-practice { min-height: 0; display: grid; grid-template-columns: 27% 1fr; gap: 4%; align-items: stretch; }
+.worksheet-words {
+  min-height: 0; min-width: 0; flex: 1; display: grid;
+  grid-template-columns: minmax(0, 1fr); gap: 2.4%;
+}
+.word-practice {
+  width: 100%; height: 100%; min-width: 0; min-height: 0; display: grid;
+  grid-template-columns: 27% minmax(0, 1fr); gap: 4%; align-items: stretch;
+}
 .word-display {
-  min-height: 0; padding: 7% 5%; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  width: 100%; height: 100%; min-width: 0; min-height: 0; padding: 7% 5%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
   background: #f4f8f6; border: 1px solid #d8e8e1; border-radius: 8px; position: relative;
 }
-.word-display > span { position: absolute; top: 7%; left: 8%; color: #91a59d; font-size: clamp(6px, .78vw, 9px); font-weight: 700; }
-.word-display strong { max-width: 100%; overflow: hidden; font-size: clamp(19px, 3.7vw, 43px); line-height: 1.05; letter-spacing: -.08em; text-overflow: ellipsis; white-space: nowrap; }
-.letters-xlarge .word-display strong { font-size: clamp(23px, 4.25vw, 50px); }
-.letters-normal .word-display strong { font-size: clamp(16px, 3vw, 34px); }
-.writing-lines { min-height: 0; display: flex; flex-direction: column; justify-content: space-evenly; }
-.writing-line { min-height: 0; flex: 1; display: flex; align-items: center; position: relative; border-bottom: 1px solid #bfc7c3; }
+.word-display > .word-index { position: absolute; top: 7%; left: 8%; color: #91a59d; font-size: clamp(6px, .78vw, 9px); font-weight: 700; }
+.display-text {
+  max-width: 100%; min-width: 0; display: block; font-size: clamp(19px, 3.7vw, 43px);
+  font-weight: 800; line-height: 1.05; letter-spacing: -.08em; white-space: nowrap;
+}
+.letters-xlarge .display-text { font-size: clamp(23px, 4.25vw, 50px); }
+.letters-normal .display-text { font-size: clamp(16px, 3vw, 34px); }
+.writing-lines {
+  width: 100%; height: 100%; min-width: 0; min-height: 0;
+  display: flex; flex-direction: column; justify-content: space-evenly;
+}
+.writing-line { min-width: 0; min-height: 0; flex: 1; display: flex; align-items: center; position: relative; border-bottom: 1px solid #bfc7c3; }
 .writing-line::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px dashed #e1e4e2; }
-.trace-word { min-width: 34%; color: #c5cbc8; font-size: clamp(14px, 2.35vw, 27px); font-weight: 700; letter-spacing: .05em; white-space: nowrap; z-index: 1; }
+.auto-fit-text { flex: 0 1 auto; }
+.trace-word {
+  max-width: 100%; min-width: 0; display: block; color: #c5cbc8;
+  font-size: clamp(14px, 2.35vw, 27px); font-weight: 700; line-height: 1.05;
+  letter-spacing: .05em; white-space: nowrap; z-index: 1;
+}
 .letters-xlarge .trace-word { font-size: clamp(17px, 2.7vw, 31px); }
 .letters-normal .trace-word { font-size: clamp(12px, 1.95vw, 22px); }
 .blank-label { color: #adb6b2; font-size: clamp(6px, .8vw, 9px); z-index: 1; }
 .praise-message { margin-top: 3.8%; padding: 2.2%; color: #735c4c; background: #fff7ef; border: 1px solid #f2d9c7; border-radius: 7px; text-align: center; font-size: clamp(8px, 1.25vw, 14px); font-weight: 800; }
 .praise-message span { margin: 0 2.2%; color: #dda97f; }
 
-.word-practice[data-kind="character"] { grid-template-columns: 32% 1fr; }
-.word-practice[data-kind="character"] .word-display strong { font-size: clamp(26px, 4.8vw, 56px); letter-spacing: 0; }
-.letters-xlarge .word-practice[data-kind="character"] .word-display strong { font-size: clamp(32px, 5.6vw, 66px); }
-.letters-normal .word-practice[data-kind="character"] .word-display strong { font-size: clamp(22px, 4vw, 46px); }
-.word-practice[data-kind="sentence"] { grid-template-columns: 1fr; grid-template-rows: auto 1fr; gap: 2.5%; }
-.word-practice[data-kind="sentence"] .word-display { min-height: 0; padding: 2.5% 4%; align-items: flex-start; }
-.word-practice[data-kind="sentence"] .word-display strong { padding-left: 6%; overflow: visible; font-size: clamp(13px, 2.15vw, 25px); letter-spacing: -.035em; text-align: left; text-overflow: clip; white-space: normal; overflow-wrap: anywhere; }
-.letters-xlarge .word-practice[data-kind="sentence"] .word-display strong { font-size: clamp(15px, 2.45vw, 29px); }
-.letters-normal .word-practice[data-kind="sentence"] .word-display strong { font-size: clamp(11px, 1.8vw, 21px); }
-.word-practice[data-kind="sentence"] .writing-lines { min-height: 72px; }
-.word-practice[data-kind="sentence"] .trace-word { max-width: 100%; white-space: normal; overflow-wrap: anywhere; font-size: clamp(10px, 1.65vw, 19px); }
-.letters-xlarge .word-practice[data-kind="sentence"] .trace-word { font-size: clamp(12px, 1.95vw, 22px); }
-.letters-normal .word-practice[data-kind="sentence"] .trace-word { font-size: clamp(9px, 1.35vw, 16px); }
+.word-practice[data-kind="character"] .display-text { font-size: clamp(26px, 4.8vw, 56px); letter-spacing: 0; }
+.letters-xlarge .word-practice[data-kind="character"] .display-text { font-size: clamp(32px, 5.6vw, 66px); }
+.letters-normal .word-practice[data-kind="character"] .display-text { font-size: clamp(22px, 4vw, 46px); }
 .worksheet-page[data-density="dense"] .worksheet-kicker, .worksheet-page[data-density="dense"] .practice-mode-stamp { display: none; }
 .worksheet-page[data-density="dense"] .student-fields { margin-top: 2.5%; }
 .worksheet-page[data-density="dense"] .today-label { margin: 2.4% 0 1.6%; }
