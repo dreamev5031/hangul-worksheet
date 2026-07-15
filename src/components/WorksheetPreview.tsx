@@ -6,18 +6,43 @@ interface WorksheetPreviewProps {
   words: string[]
 }
 
+type PracticeItemKind = 'character' | 'word' | 'sentence'
+
 const templateTitles: Record<WorksheetSettings['template'], string> = {
-  basic: '오늘의 한글쓰기',
-  name: '내 이름 따라쓰기',
-  large: '큰글씨 한글쓰기',
+  letter: '오늘의 글자 연습',
+  word: '오늘의 단어 연습',
+  sentence: '이름·문장 연습',
+}
+
+const todayLabels: Record<WorksheetSettings['template'], string> = {
+  letter: '오늘의 글자',
+  word: '오늘의 단어',
+  sentence: '오늘의 이름·문장',
+}
+
+const practiceModeLabels: Record<WorksheetSettings['practiceMode'], string> = {
+  trace: '따라쓰기 중심',
+  balanced: '따라쓰기 · 혼자쓰기',
+  independent: '혼자쓰기 중심',
+}
+
+function getPracticeItemKind(item: string): PracticeItemKind {
+  if (/\s/.test(item.trim())) return 'sentence'
+  if (Array.from(item).length === 1) return 'character'
+  return 'word'
+}
+
+function getTraceRowCount(settings: WorksheetSettings) {
+  if (settings.practiceMode === 'trace') return settings.repeatRows
+  if (settings.practiceMode === 'balanced') return Math.ceil(settings.repeatRows / 2)
+  return 1
 }
 
 const WorksheetPreview = forwardRef<HTMLDivElement, WorksheetPreviewProps>(
   ({ settings, words }, ref) => {
-    const visibleWords = words.length > 0 ? words : ['연습할 단어']
-    const sizeClass = settings.letterSize === 'large' || settings.template === 'large'
-      ? 'letters-large'
-      : 'letters-normal'
+    const visibleItems = words.length > 0 ? words : ['가']
+    const sizeClass = settings.letterSize === 'large' ? 'letters-large' : 'letters-normal'
+    const traceRowCount = getTraceRowCount(settings)
 
     return (
       <section className="preview-area" aria-labelledby="preview-title">
@@ -37,7 +62,7 @@ const WorksheetPreview = forwardRef<HTMLDivElement, WorksheetPreviewProps>(
             ref={ref}
             className={`worksheet-page ${sizeClass}`}
             data-template={settings.template}
-            data-density={visibleWords.length > 4 ? 'dense' : 'comfortable'}
+            data-density={visibleItems.length > 4 ? 'dense' : 'comfortable'}
           >
             <div className="worksheet-topline" />
             <header className="worksheet-header">
@@ -45,7 +70,7 @@ const WorksheetPreview = forwardRef<HTMLDivElement, WorksheetPreviewProps>(
                 <span className="worksheet-kicker">한 글자씩 천천히, 또박또박</span>
                 <h2>{templateTitles[settings.template]}</h2>
               </div>
-              <span className="age-stamp">{settings.age}</span>
+              <span className="practice-mode-stamp">{practiceModeLabels[settings.practiceMode]}</span>
             </header>
 
             <div className="student-fields">
@@ -54,34 +79,45 @@ const WorksheetPreview = forwardRef<HTMLDivElement, WorksheetPreviewProps>(
             </div>
 
             <div className="today-label">
-              <span>오늘의 단어</span>
+              <span>{todayLabels[settings.template]}</span>
               <i />
             </div>
 
             <div className="worksheet-words">
-              {visibleWords.map((word, wordIndex) => (
-                <article className="word-practice" key={`${word}-${wordIndex}`}>
-                  <div className="word-display">
-                    <span>{String(wordIndex + 1).padStart(2, '0')}</span>
-                    <strong>{word}</strong>
-                  </div>
+              {visibleItems.map((item, itemIndex) => {
+                const kind = settings.template === 'sentence' ? 'sentence' : getPracticeItemKind(item)
+                const blankLabel = kind === 'sentence' ? '문장을 써 보세요' : '혼자 써 보기'
 
-                  <div className="writing-lines">
-                    {Array.from({ length: settings.repeatRows }, (_, lineIndex) => (
-                      <div className="writing-line trace-line" key={lineIndex}>
-                        <span className="trace-word">{word}</span>
-                        <span className="baseline" />
-                      </div>
-                    ))}
-                    {settings.includeBlank && (
-                      <div className="writing-line blank-line">
-                        <span className="blank-label">혼자 써 보기</span>
-                        <span className="baseline" />
-                      </div>
-                    )}
-                  </div>
-                </article>
-              ))}
+                return (
+                  <article
+                    className="word-practice"
+                    data-kind={kind}
+                    key={`${item}-${itemIndex}`}
+                  >
+                    <div className="word-display">
+                      <span>{String(itemIndex + 1).padStart(2, '0')}</span>
+                      <strong>{item}</strong>
+                    </div>
+
+                    <div className="writing-lines">
+                      {Array.from({ length: settings.repeatRows }, (_, lineIndex) => {
+                        const isTraceLine = lineIndex < traceRowCount
+                        return (
+                          <div
+                            className={`writing-line ${isTraceLine ? 'trace-line' : 'blank-line'}`}
+                            key={lineIndex}
+                          >
+                            {isTraceLine
+                              ? <span className="trace-word">{item}</span>
+                              : <span className="blank-label">{blankLabel}</span>}
+                            <span className="baseline" />
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </article>
+                )
+              })}
             </div>
 
             {settings.includePraise && (
