@@ -9,10 +9,12 @@ import { parseWords } from '../utils/parseWords'
 
 const initialSettings: WorksheetSettings = {
   rawWords: 'ㄱ\n가\n사과\n김민준',
-  template: 'word',
   letterSize: 'large',
   practiceMode: 'balanced',
   repeatRows: 3,
+  showNameField: true,
+  showDateField: true,
+  includeBlank: true,
   includePraise: true,
 }
 

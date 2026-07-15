@@ -16,14 +16,14 @@ const quickInputGroups = [
   { label: '쉬운 단어', items: ['사과', '나비', '고양이', '토끼', '우유'] },
 ]
 
-const templates: Array<{
-  value: WorksheetSettings['template']
+const letterSizes: Array<{
+  value: WorksheetSettings['letterSize']
   title: string
   description: string
 }> = [
-  { value: 'letter', title: '글자 연습', description: '자음·모음·한 글자를 크게 써요' },
-  { value: 'word', title: '단어 연습', description: '단어를 보고 따라 써요' },
-  { value: 'sentence', title: '이름/문장 연습', description: '이름이나 짧은 문장을 또박또박 써요' },
+  { value: 'xlarge', title: '아주 크게', description: '처음 쓰는 아이' },
+  { value: 'large', title: '크게', description: '기본 추천' },
+  { value: 'normal', title: '보통', description: '단어·문장 연습' },
 ]
 
 const practiceModes: Array<{
@@ -31,9 +31,9 @@ const practiceModes: Array<{
   title: string
   description: string
 }> = [
-  { value: 'trace', title: '따라쓰기 중심', description: '모든 줄을 흐린 글자로 안내해요' },
-  { value: 'balanced', title: '반반', description: '따라쓰기와 혼자쓰기를 함께 해요' },
-  { value: 'independent', title: '혼자쓰기 중심', description: '첫 줄만 보고 나머지는 스스로 써요' },
+  { value: 'trace', title: '따라쓰기 많이', description: '글자를 보며 써요' },
+  { value: 'balanced', title: '반반', description: '보고 쓴 뒤 혼자 써요' },
+  { value: 'independent', title: '빈칸 많이', description: '첫 줄만 보고 써요' },
 ]
 
 export default function WorksheetControls({
@@ -60,14 +60,14 @@ export default function WorksheetControls({
         <span className="step-number">1</span>
         <div>
           <h2 id="controls-title">맞춤 학습지 만들기</h2>
-          <p>연습할 내용을 자유롭게 입력해 주세요.</p>
+          <p>연습할 내용을 입력하면 바로 만들어져요.</p>
         </div>
       </div>
 
       <div className="control-group core-input-group">
         <label htmlFor="words">연습할 글자나 단어를 입력하세요</label>
         <p className="input-description" id="words-description">
-          자음, 모음, 한 글자, 단어, 아이 이름을 모두 입력할 수 있어요.
+          자음, 모음, 한 글자, 단어, 아이 이름과 짧은 문장을 입력할 수 있어요.
         </p>
         <textarea
           id="words"
@@ -78,14 +78,14 @@ export default function WorksheetControls({
           rows={5}
         />
         <p className="field-hint" id="words-hint">
-          예: ㄱ, ㄴ, ㄷ / 가, 나, 다 / 공룡, 사과, 김민준 · 줄바꿈이나 쉼표로 나눠 주세요.
+          줄바꿈이나 쉼표로 나눠 주세요. 문장은 띄어쓰기를 그대로 반영해요.
         </p>
       </div>
 
       <section className="quick-input-panel" aria-labelledby="quick-input-title">
         <div className="quick-input-heading">
           <h3 id="quick-input-title">빠른 입력</h3>
-          <p>버튼을 누르면 입력 목록에 바로 추가돼요.</p>
+          <p>누르면 입력창에 추가돼요.</p>
         </div>
         <div className="quick-input-groups">
           {quickInputGroups.map((group) => (
@@ -107,61 +107,50 @@ export default function WorksheetControls({
           ))}
         </div>
         <p className="name-input-tip">
-          <strong>아이 이름</strong>은 위 입력창에 직접 적어 주세요. 입력한 이름은 저장되지 않아요.
+          <strong>아이 이름</strong>은 입력창에 직접 적어 주세요. 입력 내용은 저장되지 않아요.
         </p>
       </section>
 
-      <fieldset className="control-group">
-        <legend>학습지 유형</legend>
-        <div className="template-options">
-          {templates.map((template) => (
-            <label
-              key={template.value}
-              className={`template-option ${settings.template === template.value ? 'selected' : ''}`}
-            >
-              <input
-                type="radio"
-                name="template"
-                value={template.value}
-                checked={settings.template === template.value}
-                onChange={() => update('template', template.value)}
-              />
-              <span className="template-check" aria-hidden="true" />
-              <span>
-                <strong>{template.title}</strong>
-                <small>{template.description}</small>
-              </span>
-            </label>
-          ))}
-        </div>
-      </fieldset>
+      <section className="settings-section output-settings" aria-labelledby="output-settings-title">
+        <h3 id="output-settings-title">출력 설정</h3>
 
-      <div className="option-grid">
         <fieldset className="control-group compact">
           <legend>글자 크기</legend>
-          <div className="segmented two-up">
-            <label className={settings.letterSize === 'large' ? 'selected' : ''}>
-              <input
-                type="radio"
-                name="letterSize"
-                checked={settings.letterSize === 'large'}
-                onChange={() => update('letterSize', 'large')}
-              />
-              크게
-            </label>
-            <label className={settings.letterSize === 'normal' ? 'selected' : ''}>
-              <input
-                type="radio"
-                name="letterSize"
-                checked={settings.letterSize === 'normal'}
-                onChange={() => update('letterSize', 'normal')}
-              />
-              보통
-            </label>
+          <div className="segmented size-options">
+            {letterSizes.map((size) => (
+              <label key={size.value} className={settings.letterSize === size.value ? 'selected' : ''}>
+                <input
+                  type="radio"
+                  name="letterSize"
+                  checked={settings.letterSize === size.value}
+                  onChange={() => update('letterSize', size.value)}
+                />
+                <strong>{size.title}</strong>
+                <small>{size.description}</small>
+              </label>
+            ))}
           </div>
         </fieldset>
 
-        <fieldset className="control-group compact">
+        <fieldset className="control-group compact practice-mode-group">
+          <legend>연습 방식</legend>
+          <div className="segmented practice-mode-options">
+            {practiceModes.map((mode) => (
+              <label key={mode.value} className={settings.practiceMode === mode.value ? 'selected' : ''}>
+                <input
+                  type="radio"
+                  name="practiceMode"
+                  checked={settings.practiceMode === mode.value}
+                  onChange={() => update('practiceMode', mode.value)}
+                />
+                <strong>{mode.title}</strong>
+                <small>{mode.description}</small>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        <fieldset className="control-group compact rows-setting">
           <legend>줄 수</legend>
           <div className="segmented two-up">
             {([3, 5] as const).map((count) => (
@@ -177,40 +166,49 @@ export default function WorksheetControls({
             ))}
           </div>
         </fieldset>
-      </div>
+      </section>
 
-      <fieldset className="control-group practice-mode-group">
-        <legend>연습 방식</legend>
-        <div className="segmented practice-mode-options">
-          {practiceModes.map((mode) => (
-            <label key={mode.value} className={settings.practiceMode === mode.value ? 'selected' : ''}>
-              <input
-                type="radio"
-                name="practiceMode"
-                checked={settings.practiceMode === mode.value}
-                onChange={() => update('practiceMode', mode.value)}
-              />
-              <strong>{mode.title}</strong>
-              <small>{mode.description}</small>
-            </label>
-          ))}
+      <section className="settings-section additional-settings" aria-labelledby="additional-settings-title">
+        <h3 id="additional-settings-title">추가 설정</h3>
+        <div className="switch-list additional-switches">
+          <label className="switch-row">
+            <span><strong>이름칸 표시</strong></span>
+            <input
+              type="checkbox"
+              role="switch"
+              checked={settings.showNameField}
+              onChange={(event) => update('showNameField', event.target.checked)}
+            />
+          </label>
+          <label className="switch-row">
+            <span><strong>날짜칸 표시</strong></span>
+            <input
+              type="checkbox"
+              role="switch"
+              checked={settings.showDateField}
+              onChange={(event) => update('showDateField', event.target.checked)}
+            />
+          </label>
+          <label className="switch-row">
+            <span><strong>빈칸 연습 포함</strong></span>
+            <input
+              type="checkbox"
+              role="switch"
+              checked={settings.includeBlank}
+              onChange={(event) => update('includeBlank', event.target.checked)}
+            />
+          </label>
+          <label className="switch-row">
+            <span><strong>칭찬 문구 포함</strong></span>
+            <input
+              type="checkbox"
+              role="switch"
+              checked={settings.includePraise}
+              onChange={(event) => update('includePraise', event.target.checked)}
+            />
+          </label>
         </div>
-      </fieldset>
-
-      <div className="switch-list">
-        <label className="switch-row">
-          <span>
-            <strong>칭찬 문구 포함</strong>
-            <small>학습지 아래에 응원을 담아요</small>
-          </span>
-          <input
-            type="checkbox"
-            role="switch"
-            checked={settings.includePraise}
-            onChange={(event) => update('includePraise', event.target.checked)}
-          />
-        </label>
-      </div>
+      </section>
 
       <div className="action-buttons">
         <button className="primary-button" type="button" onClick={onDownload} disabled={isDownloading}>

@@ -8,22 +8,10 @@ interface WorksheetPreviewProps {
 
 type PracticeItemKind = 'character' | 'word' | 'sentence'
 
-const templateTitles: Record<WorksheetSettings['template'], string> = {
-  letter: '오늘의 글자 연습',
-  word: '오늘의 단어 연습',
-  sentence: '이름·문장 연습',
-}
-
-const todayLabels: Record<WorksheetSettings['template'], string> = {
-  letter: '오늘의 글자',
-  word: '오늘의 단어',
-  sentence: '오늘의 이름·문장',
-}
-
 const practiceModeLabels: Record<WorksheetSettings['practiceMode'], string> = {
-  trace: '따라쓰기 중심',
-  balanced: '따라쓰기 · 혼자쓰기',
-  independent: '혼자쓰기 중심',
+  trace: '따라쓰기 많이',
+  balanced: '따라쓰기 · 빈칸',
+  independent: '빈칸 많이',
 }
 
 function getPracticeItemKind(item: string): PracticeItemKind {
@@ -33,7 +21,7 @@ function getPracticeItemKind(item: string): PracticeItemKind {
 }
 
 function getTraceRowCount(settings: WorksheetSettings) {
-  if (settings.practiceMode === 'trace') return settings.repeatRows
+  if (!settings.includeBlank || settings.practiceMode === 'trace') return settings.repeatRows
   if (settings.practiceMode === 'balanced') return Math.ceil(settings.repeatRows / 2)
   return 1
 }
@@ -41,8 +29,10 @@ function getTraceRowCount(settings: WorksheetSettings) {
 const WorksheetPreview = forwardRef<HTMLDivElement, WorksheetPreviewProps>(
   ({ settings, words }, ref) => {
     const visibleItems = words.length > 0 ? words : ['가']
-    const sizeClass = settings.letterSize === 'large' ? 'letters-large' : 'letters-normal'
+    const sizeClass = `letters-${settings.letterSize}`
     const traceRowCount = getTraceRowCount(settings)
+    const showStudentFields = settings.showNameField || settings.showDateField
+    const hasSingleStudentField = settings.showNameField !== settings.showDateField
 
     return (
       <section className="preview-area" aria-labelledby="preview-title">
@@ -61,31 +51,32 @@ const WorksheetPreview = forwardRef<HTMLDivElement, WorksheetPreviewProps>(
           <div
             ref={ref}
             className={`worksheet-page ${sizeClass}`}
-            data-template={settings.template}
             data-density={visibleItems.length > 4 ? 'dense' : 'comfortable'}
           >
             <div className="worksheet-topline" />
             <header className="worksheet-header">
               <div>
                 <span className="worksheet-kicker">한 글자씩 천천히, 또박또박</span>
-                <h2>{templateTitles[settings.template]}</h2>
+                <h2>오늘의 한글 연습</h2>
               </div>
               <span className="practice-mode-stamp">{practiceModeLabels[settings.practiceMode]}</span>
             </header>
 
-            <div className="student-fields">
-              <span>이름 <i /></span>
-              <span>날짜 <i /></span>
-            </div>
+            {showStudentFields && (
+              <div className={`student-fields ${hasSingleStudentField ? 'single-field' : ''}`}>
+                {settings.showNameField && <span>이름 <i /></span>}
+                {settings.showDateField && <span>날짜 <i /></span>}
+              </div>
+            )}
 
             <div className="today-label">
-              <span>{todayLabels[settings.template]}</span>
+              <span>오늘의 연습</span>
               <i />
             </div>
 
             <div className="worksheet-words">
               {visibleItems.map((item, itemIndex) => {
-                const kind = settings.template === 'sentence' ? 'sentence' : getPracticeItemKind(item)
+                const kind = getPracticeItemKind(item)
                 const blankLabel = kind === 'sentence' ? '문장을 써 보세요' : '혼자 써 보기'
 
                 return (
