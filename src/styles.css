@@ -59,7 +59,7 @@ button { cursor: pointer; }
 
 .app-layout { display: grid; grid-template-columns: minmax(340px, .76fr) minmax(560px, 1.24fr); gap: 28px; align-items: start; }
 .controls-card {
-  padding: 28px; background: var(--surface); border: 1px solid var(--border);
+  padding: 24px; background: var(--surface); border: 1px solid var(--border);
   border-radius: 24px; box-shadow: 0 10px 30px rgba(44, 66, 58, .06);
 }
 .section-heading, .preview-toolbar > div { display: flex; align-items: center; gap: 13px; }
@@ -69,7 +69,7 @@ button { cursor: pointer; }
 }
 .section-heading h2, .preview-toolbar h2 { margin: 0 0 3px; font-size: 1.18rem; letter-spacing: -.03em; }
 .section-heading p, .preview-toolbar p { margin: 0; color: var(--muted); font-size: .84rem; }
-.control-group { min-width: 0; margin: 26px 0 0; padding: 0; border: 0; }
+.control-group { min-width: 0; margin: 20px 0 0; padding: 0; border: 0; }
 .control-group > label, .control-group legend { display: block; margin-bottom: 10px; font-size: .9rem; font-weight: 750; }
 textarea {
   width: 100%; min-height: 142px; padding: 16px; resize: vertical;
@@ -79,21 +79,13 @@ textarea {
 textarea:focus { border-color: var(--mint); box-shadow: 0 0 0 4px rgba(94, 158, 135, .12); }
 .input-description { margin: -2px 0 10px; color: var(--muted); font-size: .8rem; line-height: 1.55; }
 .field-hint { margin: 8px 2px 0; color: var(--muted); font-size: .75rem; line-height: 1.55; }
-.core-input-group { padding: 18px; background: #f5faf7; border: 1px solid #d7e9e1; border-radius: 17px; }
+.core-input-group { padding: 16px; background: #f5faf7; border: 1px solid #d7e9e1; border-radius: 15px; }
 .core-input-group > label { color: var(--ink); font-size: 1rem; }
-.quick-input-panel { margin-top: 14px; padding: 14px; background: #fbfaf7; border: 1px solid var(--border); border-radius: 15px; }
-.quick-input-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
-.quick-input-heading h3 { margin: 0; font-size: .92rem; }
-.quick-input-heading p { margin: 0; color: var(--muted); font-size: .72rem; }
-.quick-input-groups { margin-top: 12px; display: grid; gap: 12px; }
-.quick-input-group h4 { margin: 0 0 7px; color: var(--muted); font-size: .74rem; }
-.quick-input-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.quick-input-chips button { min-width: 38px; min-height: 38px; padding: 7px 10px; color: var(--mint-dark); background: white; border: 1px solid #cfe1da; border-radius: 10px; font-family: var(--font-worksheet); font-size: .88rem; font-weight: 800; transition: .15s; }
-.quick-input-chips button:hover { background: var(--mint-soft); border-color: var(--mint); transform: translateY(-1px); }
-.quick-input-chips button:focus-visible { outline: 3px solid rgba(94, 158, 135, .22); outline-offset: 2px; }
-.name-input-tip { margin: 12px 0 0; padding-top: 10px; color: var(--muted); border-top: 1px solid var(--border); font-size: .72rem; line-height: 1.5; }
-.name-input-tip strong { color: var(--ink); }
-
+.input-footer { margin-top: 9px; display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.input-footer .field-hint { flex: 1; margin: 0; }
+.clear-input-button { min-height: 34px; flex: 0 0 auto; padding: 6px 10px; color: var(--muted); background: transparent; border: 1px solid #cbd3cf; border-radius: 9px; font-size: .72rem; font-weight: 700; }
+.clear-input-button:hover { color: var(--ink); background: #eef2ef; }
+.clear-input-button:disabled { cursor: default; opacity: .45; }
 .segmented { padding: 4px; display: grid; gap: 3px; background: #f0f2ef; border-radius: 12px; }
 .size-options, .practice-mode-options { grid-template-columns: repeat(3, 1fr); }
 .segmented label {
@@ -102,9 +94,9 @@ textarea:focus { border-color: var(--mint); box-shadow: 0 0 0 4px rgba(94, 158, 
 }
 .segmented label.selected { color: var(--mint-dark); background: white; box-shadow: 0 2px 8px rgba(44, 66, 58, .08); }
 .segmented input { position: absolute; opacity: 0; pointer-events: none; }
-.settings-section { margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--border); }
+.settings-section { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
 .settings-section > h3 { margin: 0; font-size: .94rem; letter-spacing: -.02em; }
-.control-group.compact { margin-top: 14px; }
+.control-group.compact { margin-top: 12px; }
 .two-up { grid-template-columns: 1fr 1fr; }
 .size-options label, .practice-mode-options label { min-height: 68px; padding: 9px 6px; align-content: center; gap: 3px; }
 .size-options strong, .size-options small, .practice-mode-options strong, .practice-mode-options small { display: block; }
@@ -133,7 +125,7 @@ textarea:focus { border-color: var(--mint); box-shadow: 0 0 0 4px rgba(94, 158, 
 .switch-row input:checked { background: var(--mint); }
 .switch-row input:checked::after { transform: translateX(19px); }
 
-.action-buttons { margin-top: 24px; display: grid; grid-template-columns: 1.3fr 1fr; gap: 10px; }
+.action-buttons { margin-top: 20px; display: grid; grid-template-columns: 1.3fr 1fr; gap: 10px; }
 .action-buttons button {
   min-height: 52px; border: 1.5px solid var(--mint-dark); border-radius: 13px;
   font-weight: 800; transition: transform .15s, box-shadow .15s;
@@ -225,18 +217,12 @@ textarea:focus { border-color: var(--mint); box-shadow: 0 0 0 4px rgba(94, 158, 
   .hero h1 { font-size: clamp(2.1rem, 11vw, 3.2rem); }
   .hero > h1 + p { font-size: .94rem; }
   .mobile-break { display: block; }
-  .controls-card { padding: 18px; border-radius: 18px; }
+  .controls-card { padding: 16px; border-radius: 17px; }
   .preview-area { padding: 20px; border-radius: 18px; }
-  .core-input-group { padding: 14px; }
-  textarea { min-height: 130px; }
-  .quick-input-panel { padding: 12px; }
-  .quick-input-heading { display: block; }
-  .quick-input-heading p { margin-top: 3px; }
-  .quick-input-groups { gap: 11px; }
-  .quick-input-chips { flex-wrap: nowrap; gap: 7px; overflow-x: auto; padding: 2px 0 5px; scrollbar-width: none; }
-  .quick-input-chips::-webkit-scrollbar { display: none; }
-  .quick-input-chips button { min-width: 42px; min-height: 42px; flex: 0 0 auto; font-size: .92rem; }
-  .size-options label, .practice-mode-options label { min-height: 57px; padding: 8px 4px; }
+  .core-input-group { padding: 12px; }
+  textarea { min-height: 122px; }
+  .input-footer { align-items: center; gap: 8px; }
+  .clear-input-button { min-height: 38px; padding-inline: 9px; }  .size-options label, .practice-mode-options label { min-height: 57px; padding: 8px 4px; }
   .size-options small, .practice-mode-options small { display: none; }
   .size-options strong, .practice-mode-options strong { font-size: .7rem; line-height: 1.25; }
   .additional-switches { grid-template-columns: 1fr; }

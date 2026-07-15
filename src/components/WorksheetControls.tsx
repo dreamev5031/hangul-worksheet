@@ -1,5 +1,4 @@
 import type { WorksheetSettings } from '../types'
-import { parseWords } from '../utils/parseWords'
 
 interface WorksheetControlsProps {
   settings: WorksheetSettings
@@ -8,13 +7,6 @@ interface WorksheetControlsProps {
   onPrint: () => void
   isDownloading: boolean
 }
-
-const quickInputGroups = [
-  { label: '기본 자음', items: ['ㄱ', 'ㄴ', 'ㄷ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅅ', 'ㅇ', 'ㅈ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'] },
-  { label: '기본 모음', items: ['ㅏ', 'ㅑ', 'ㅓ', 'ㅕ', 'ㅗ', 'ㅛ', 'ㅜ', 'ㅠ', 'ㅡ', 'ㅣ'] },
-  { label: '가나다', items: ['가', '나', '다', '라', '마', '바', '사', '아', '자', '차', '카', '타', '파', '하'] },
-  { label: '쉬운 단어', items: ['사과', '나비', '고양이', '토끼', '우유'] },
-]
 
 const letterSizes: Array<{
   value: WorksheetSettings['letterSize']
@@ -48,12 +40,6 @@ export default function WorksheetControls({
     value: WorksheetSettings[K],
   ) => onChange({ ...settings, [key]: value })
 
-  const addQuickInput = (item: string) => {
-    const currentItems = parseWords(settings.rawWords)
-    if (currentItems.includes(item)) return
-    update('rawWords', [...currentItems, item].join('\n'))
-  }
-
   return (
     <section className="controls-card no-print" aria-labelledby="controls-title">
       <div className="section-heading">
@@ -77,40 +63,20 @@ export default function WorksheetControls({
           placeholder={'ㄱ, ㄴ, ㄷ\n가, 나, 다\n공룡, 사과, 김민준'}
           rows={5}
         />
-        <p className="field-hint" id="words-hint">
-          줄바꿈이나 쉼표로 나눠 주세요. 문장은 띄어쓰기를 그대로 반영해요.
-        </p>
+        <div className="input-footer">
+          <p className="field-hint" id="words-hint">
+            예: ㄱ, ㄴ, ㄷ / 가, 나, 다 / 공룡, 사과, 김민준
+          </p>
+          <button
+            className="clear-input-button"
+            type="button"
+            onClick={() => update('rawWords', '')}
+            disabled={!settings.rawWords}
+          >
+            입력 지우기
+          </button>
+        </div>
       </div>
-
-      <section className="quick-input-panel" aria-labelledby="quick-input-title">
-        <div className="quick-input-heading">
-          <h3 id="quick-input-title">빠른 입력</h3>
-          <p>누르면 입력창에 추가돼요.</p>
-        </div>
-        <div className="quick-input-groups">
-          {quickInputGroups.map((group) => (
-            <div className="quick-input-group" key={group.label}>
-              <h4>{group.label}</h4>
-              <div className="quick-input-chips">
-                {group.items.map((item) => (
-                  <button
-                    type="button"
-                    key={item}
-                    onClick={() => addQuickInput(item)}
-                    aria-label={`${group.label} ${item} 추가`}
-                  >
-                    {item}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-        <p className="name-input-tip">
-          <strong>아이 이름</strong>은 입력창에 직접 적어 주세요. 입력 내용은 저장되지 않아요.
-        </p>
-      </section>
-
       <section className="settings-section output-settings" aria-labelledby="output-settings-title">
         <h3 id="output-settings-title">출력 설정</h3>
 
