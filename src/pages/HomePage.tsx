@@ -1,5 +1,4 @@
 import { useMemo, useRef, useState } from 'react'
-import AdPlaceholder from '../components/AdPlaceholder'
 import Seo from '../components/Seo'
 import WorksheetControls from '../components/WorksheetControls'
 import WorksheetPreview from '../components/WorksheetPreview'
@@ -55,8 +54,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      <AdPlaceholder className="home-top-ad" />
-
       <section className="tool-section" aria-label="한글 학습지 만들기 도구">
         <div className="app-layout">
           <WorksheetControls
@@ -69,8 +66,6 @@ export default function HomePage() {
           <WorksheetPreview ref={previewRef} settings={settings} words={words} />
         </div>
       </section>
-
-      <AdPlaceholder className="home-tool-ad" />
 
       <article className="home-content no-print" aria-labelledby="home-guide-title">
         <header className="content-intro">
@@ -107,7 +102,7 @@ export default function HomePage() {
             <p className="eyebrow">입력 정보 보호</p>
             <h3>아이 이름은 이 기기 안에서만 사용돼요</h3>
           </div>
-          <p>현재 서비스는 회원가입, 로그인, 쿠키 추적, 데이터베이스 저장 기능이 없습니다. 입력한 글자, 단어와 이름은 PDF를 만들거나 인쇄 미리보기를 표시할 때 브라우저 안에서만 처리됩니다.</p>
+          <p>현재 서비스는 회원가입, 로그인, 데이터베이스 저장 기능이 없습니다. 입력한 글자, 단어와 이름은 PDF를 만들거나 인쇄 미리보기를 표시할 때 브라우저 안에서만 처리됩니다.</p>
           <a href="/privacy/">개인정보 처리방침 자세히 보기</a>
         </section>
 
