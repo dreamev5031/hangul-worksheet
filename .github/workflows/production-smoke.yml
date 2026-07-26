@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - main
+      - agent/production-landscape-smoke
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -12,7 +16,7 @@ permissions:
 jobs:
   production-smoke:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 18
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -90,3 +94,41 @@ jobs:
             exit 1
           fi
           echo "Production verified with display glyph and landscape layout asset: $asset"
+      - name: Install Korean font for live browser verification
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq fonts-noto-cjk
+          fc-cache -f
+      - name: Verify live tablet landscape layouts
+        shell: bash
+        run: |
+          set -euo pipefail
+          chrome="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser)"
+          mkdir -p artifacts/production-landscape
+          for viewport in '1024 600' '1024 768' '1180 820'; do
+            read -r width height <<<"$viewport"
+            output="/tmp/live-${width}x${height}.html"
+            "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars \
+              --force-device-scale-factor=1 --window-size="${width},${height}" --virtual-time-budget=4500 \
+              --run-all-compositor-stages-before-draw --dump-dom \
+              'https://hangul-worksheet.pages.dev/practice/?start=1&text=%ED%99%A9' >"$output"
+            grep -Fq 'data-layout-mode="tablet-landscape"' "$output"
+            grep -Fq 'data-scroll-ok="true"' "$output"
+            grep -Fq 'data-display-glyph-layer="display-glyph-layer-v1"' "$output"
+            canvas_side="$(grep -oE 'data-canvas-side="[0-9]+"' "$output" | head -1 | grep -oE '[0-9]+')"
+            panel_width="$(grep -oE 'data-panel-width="[0-9]+"' "$output" | head -1 | grep -oE '[0-9]+')"
+            test "$canvas_side" -ge 400
+            test "$panel_width" -ge 240
+            "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars \
+              --force-device-scale-factor=1 --window-size="${width},${height}" --virtual-time-budget=3500 \
+              --run-all-compositor-stages-before-draw --screenshot="artifacts/production-landscape/${width}x${height}.png" \
+              'https://hangul-worksheet.pages.dev/practice/?start=1&text=%ED%99%A9'
+            echo "live=${width}x${height} canvas=${canvas_side} panel=${panel_width} scroll=ok"
+          done
+      - name: Upload live production landscape screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-landscape-screenshots
+          path: artifacts/production-landscape
+          if-no-files-found: error
+          retention-days: 14
