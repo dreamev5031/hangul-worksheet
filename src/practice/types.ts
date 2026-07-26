@@ -28,6 +28,39 @@ export interface StrokePath {
   preserveAspect: boolean
 }
 
+export type SyllableLayoutType =
+  | 'vertical-no-final'
+  | 'vertical-with-final'
+  | 'horizontal-no-final'
+  | 'horizontal-with-final'
+  | 'compound-no-final'
+  | 'compound-with-final'
+
+export type SyllableRole = 'initial' | 'medial' | 'final'
+export type SyllableFinalKind = 'none' | 'single' | 'cluster'
+
+export interface GlyphBounds {
+  x: number
+  y: number
+  width: number
+  height: number
+  right: number
+  bottom: number
+  centerX: number
+  centerY: number
+}
+
+export interface GlyphFitMetadata {
+  before: GlyphBounds
+  after: GlyphBounds
+  target: GlyphBounds
+  scale: number
+  translateX: number
+  translateY: number
+  usageX: number
+  usageY: number
+}
+
 export interface GeneratedCharacter {
   character: string
   strokes: StrokePath[]
@@ -35,6 +68,10 @@ export interface GeneratedCharacter {
   initial?: string
   medial?: string
   final?: string
+  layoutType?: SyllableLayoutType
+  finalKind?: SyllableFinalKind
+  fit?: GlyphFitMetadata
+  overrideKey?: string
 }
 
 export interface HangulDecomposition {
