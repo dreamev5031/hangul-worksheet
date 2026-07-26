@@ -83,10 +83,13 @@ jobs:
           grep -Fq '획순 연습 시작하기' /tmp/app.js
           grep -Fq '참 잘했어요!' /tmp/app.js
           grep -Fq '필기 이미지와 실제 획 좌표는 저장하지 않습니다' /tmp/app.js
+          grep -Fq 'display-glyph-layer-v1' /tmp/app.js
+          grep -Fq 'practice-side-panel' /tmp/app.js
+          grep -Fq 'tablet-landscape' /tmp/app.js
           grep -Fq 'PDF로 저장' /tmp/app.js
           grep -Fq '인쇄하기' /tmp/app.js
           if grep -Fq '채점하기' /tmp/app.js; then
             echo 'Legacy score action remains in production bundle' >&2
             exit 1
           fi
-          echo "Production verified with asset: $asset"
+          echo "Production verified with display glyph and landscape layout asset: $asset"
