@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - 'agent/**'
+      - 'fix/**'
   pull_request:
     branches:
       - main
@@ -46,13 +47,12 @@ jobs:
           grep -q '<div id="root"></div>' /tmp/home.html
           grep -q '<div id="root"></div>' /tmp/practice.html
           grep -q '<div id="root"></div>' /tmp/privacy.html
-      - name: Install Korean font for visual checks
+      - name: Install Korean UI font for readable screenshots
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq fonts-noto-cjk
           fc-cache -f
-          fc-match 'Noto Sans KR'
-      - name: Browser-test landscape layouts and display glyphs
+      - name: Browser-test canonical strokes and responsive layouts
         shell: bash
         run: bash tests/browser-practice-smoke.sh
       - name: Collect browser diagnostics
@@ -62,13 +62,13 @@ jobs:
           mkdir -p artifacts/practice-browser-debug
           cp -r /tmp/practice-browser/. artifacts/practice-browser-debug/ 2>/dev/null || true
           cp /tmp/hangul-browser-http.log artifacts/practice-browser-debug/ 2>/dev/null || true
-      - name: Upload display glyph screenshots and diagnostics
+      - name: Upload canonical stroke screenshots and diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: practice-display-glyphs
+          name: canonical-stroke-screenshots
           path: |
-            artifacts/practice-glyphs
+            artifacts/canonical-strokes
             artifacts/practice-browser-debug
           if-no-files-found: warn
           retention-days: 14
