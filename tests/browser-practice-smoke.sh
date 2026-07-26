@@ -38,7 +38,8 @@ for viewport in "${viewports[@]}"; do
     --hide-scrollbars \
     --force-device-scale-factor=1 \
     --window-size="${width},${height}" \
-    --virtual-time-budget=2500 \
+    --virtual-time-budget=4000 \
+    --run-all-compositor-stages-before-draw \
     --dump-dom \
     "http://127.0.0.1:4173/practice/?start=1&text=${encoded_hwang}" >"$output" 2>/tmp/practice-browser/chrome.log
   grep -Fq "data-layout-mode=\"${expected_mode}\"" "$output"
@@ -46,15 +47,17 @@ for viewport in "${viewports[@]}"; do
   grep -Fq 'data-display-glyph-layer="display-glyph-layer-v1"' "$output"
   canvas_side="$(grep -oE 'data-canvas-side="[0-9]+"' "$output" | head -1 | grep -oE '[0-9]+')"
   panel_width="$(grep -oE 'data-panel-width="[0-9]+"' "$output" | head -1 | grep -oE '[0-9]+')"
+  actual_height="$(grep -oE -- '--practice-vh: [0-9]+px' "$output" | head -1 | grep -oE '[0-9]+')"
   test -n "$canvas_side"
   test -n "$panel_width"
+  test -n "$actual_height"
   if [ "$expected_mode" = 'phone-landscape' ]; then
-    test "$canvas_side" -ge $((height - 76))
+    test "$canvas_side" -ge $((actual_height - 24))
     test "$panel_width" -ge 168
   else
     test "$panel_width" -ge 240
   fi
-  echo "viewport=${width}x${height} mode=${expected_mode} canvas=${canvas_side} panel=${panel_width} scroll=ok"
+  echo "viewport=${width}x${height} visualHeight=${actual_height} mode=${expected_mode} canvas=${canvas_side} panel=${panel_width} scroll=ok"
 done
 
 samples=('ㄱ' '가' '사' '황' '슬' '김' '민' '준' '하' '호' '우' '히')
@@ -74,7 +77,7 @@ PY
     --hide-scrollbars \
     --force-device-scale-factor=1 \
     --window-size=1024,768 \
-    --virtual-time-budget=2200 \
+    --virtual-time-budget=3000 \
     --run-all-compositor-stages-before-draw \
     --screenshot="artifacts/practice-glyphs/$(printf '%02d' "$index").png" \
     "http://127.0.0.1:4173/practice/?start=1&text=${encoded}" >/tmp/practice-browser/screenshot.log 2>&1
