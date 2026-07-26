@@ -119,6 +119,7 @@ export const FINAL_CLUSTER_STANDARD_COMPONENTS: Record<string, string[]> = {
   'ㄳ': ['ㄱ', 'ㅅ'], 'ㄵ': ['ㄴ', 'ㅈ'], 'ㄶ': ['ㄴ', 'ㅎ'], 'ㄺ': ['ㄹ', 'ㄱ'], 'ㄻ': ['ㄹ', 'ㅁ'],
   'ㄼ': ['ㄹ', 'ㅂ'], 'ㄽ': ['ㄹ', 'ㅅ'], 'ㄾ': ['ㄹ', 'ㅌ'], 'ㄿ': ['ㄹ', 'ㅍ'], 'ㅀ': ['ㄹ', 'ㅎ'], 'ㅄ': ['ㅂ', 'ㅅ'],
 }
+const SIMPLE_FINALS = ['ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ']
 
 function renumber(strokes: StandardStrokeDescription[]): StandardStrokeDescription[] {
   return strokes.map((stroke, index) => ({ ...stroke, order: index + 1 }))
@@ -160,7 +161,8 @@ for (const [jamo, strokes] of Object.entries(SIMPLE_AND_COMPOUND_VOWELS)) {
 }
 
 export const FINAL_STROKE_STANDARD: Record<string, StrokeStandardEntry> = {}
-for (const [jamo, initial] of Object.entries(INITIAL_STROKE_STANDARD)) {
+for (const jamo of SIMPLE_FINALS) {
+  const initial = INITIAL_STROKE_STANDARD[jamo]
   FINAL_STROKE_STANDARD[jamo] = { ...initial, category: 'final' }
 }
 for (const [jamo, components] of Object.entries(FINAL_CLUSTER_STANDARD_COMPONENTS)) {
