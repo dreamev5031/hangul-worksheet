@@ -1,0 +1,49 @@
+/* Landscape-only refinements loaded after practice.css. */
+.layout-phone-landscape {
+  grid-template-rows: minmax(0, 1fr);
+  position: relative;
+}
+
+.layout-phone-landscape .compact-session-header {
+  width: calc(var(--practice-panel-width) - 18px);
+  min-height: 44px;
+  padding: 0;
+  display: block;
+  position: absolute;
+  top: calc(var(--practice-outer-margin) + env(safe-area-inset-top));
+  right: max(calc(var(--practice-outer-margin) + 9px), env(safe-area-inset-right));
+  z-index: 6;
+  background: transparent;
+  border: 0;
+  pointer-events: none;
+}
+
+.layout-phone-landscape .compact-session-header .session-exit-button {
+  width: 100%;
+  min-height: 44px;
+  display: block;
+  pointer-events: auto;
+}
+
+.layout-phone-landscape .compact-session-progress,
+.layout-phone-landscape .header-utilities,
+.layout-phone-landscape .compact-session-header::after {
+  display: none;
+}
+
+.layout-phone-landscape .practice-side-panel {
+  padding-top: 58px;
+  justify-content: flex-start;
+}
+
+.layout-phone-landscape .side-panel-progress {
+  flex: 0 0 auto;
+}
+
+.layout-phone-landscape .side-panel-message {
+  flex: 0 0 auto;
+}
+
+.layout-phone-landscape .side-panel-actions {
+  margin-top: auto;
+}
