@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-      - agent/screen-practice
+      - 'agent/**'
   pull_request:
     branches:
       - main
@@ -15,7 +15,7 @@ permissions:
 jobs:
   test-build:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 22
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -46,3 +46,29 @@ jobs:
           grep -q '<div id="root"></div>' /tmp/home.html
           grep -q '<div id="root"></div>' /tmp/practice.html
           grep -q '<div id="root"></div>' /tmp/privacy.html
+      - name: Install Korean font for visual checks
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq fonts-noto-cjk
+          fc-cache -f
+          fc-match 'Noto Sans KR'
+      - name: Browser-test landscape layouts and display glyphs
+        shell: bash
+        run: bash tests/browser-practice-smoke.sh
+      - name: Collect browser diagnostics
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p artifacts/practice-browser-debug
+          cp -r /tmp/practice-browser/. artifacts/practice-browser-debug/ 2>/dev/null || true
+          cp /tmp/hangul-browser-http.log artifacts/practice-browser-debug/ 2>/dev/null || true
+      - name: Upload display glyph screenshots and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: practice-display-glyphs
+          path: |
+            artifacts/practice-glyphs
+            artifacts/practice-browser-debug
+          if-no-files-found: warn
+          retention-days: 14

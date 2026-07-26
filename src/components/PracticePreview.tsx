@@ -17,7 +17,7 @@ export default function PracticePreview({ rawText }: PracticePreviewProps) {
           <span className="step-number">2</span>
           <div>
             <h2 id="practice-preview-title">획순 연습 미리보기</h2>
-            <p>실제 연습에서는 현재 획만 밝게 안내해요.</p>
+            <p>정자체 기준 글자 위에 현재 획만 밝게 안내해요.</p>
           </div>
         </div>
         <span className="live-badge"><i /> 준비</span>
@@ -26,6 +26,7 @@ export default function PracticePreview({ rawText }: PracticePreviewProps) {
       <div className="practice-preview-card">
         <div className="practice-preview-sample stroke-order-preview" aria-label={`${firstItem} 획순 미리보기`}>
           <svg viewBox="0 0 100 100" role="img" aria-hidden="true">
+            <text x="50" y="53" className="preview-display-glyph">{firstItem}</text>
             {generated?.strokes.map((stroke, index) => (
               <polyline
                 key={stroke.id}

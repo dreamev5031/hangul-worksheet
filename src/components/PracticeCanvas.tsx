@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
+import { DISPLAY_GLYPH_LAYER_MARKER, drawDisplayGlyph } from '../practice/displayGlyphs'
 import { pointAtProgress } from '../practice/strokePath'
 import type { GeneratedCharacter, PracticePoint } from '../practice/types'
 
@@ -13,6 +14,10 @@ interface PracticeCanvasProps {
   failedStroke: PracticePoint[] | null
   onInteractionStart: () => void
   onStrokeEnd: (points: PracticePoint[]) => void
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value))
 }
 
 function drawPolyline(
@@ -39,11 +44,19 @@ function drawPolyline(
   context.restore()
 }
 
-function drawArrow(context: CanvasRenderingContext2D, from: PracticePoint, to: PracticePoint, width: number, height: number, strong: boolean) {
+function drawArrow(
+  context: CanvasRenderingContext2D,
+  from: PracticePoint,
+  to: PracticePoint,
+  width: number,
+  height: number,
+  strong: boolean,
+) {
   const x = to.x * width
   const y = to.y * height
   const angle = Math.atan2((to.y - from.y) * height, (to.x - from.x) * width)
-  const size = strong ? 13 : 10
+  const side = Math.min(width, height)
+  const size = clamp(side * 0.018 + (strong ? 1 : 0), 9, 14)
   context.save()
   context.translate(x, y)
   context.rotate(angle)
@@ -99,7 +112,7 @@ export default function PracticeCanvas({
 
     const draw = (time = performance.now()) => {
       const rect = canvas.getBoundingClientRect()
-      const dpr = Math.max(1, window.devicePixelRatio || 1)
+      const dpr = Math.min(2.25, Math.max(1, window.devicePixelRatio || 1))
       const pixelWidth = Math.max(1, Math.round(rect.width * dpr))
       const pixelHeight = Math.max(1, Math.round(rect.height * dpr))
       if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
@@ -124,29 +137,40 @@ export default function PracticeCanvas({
       context.stroke()
       context.setLineDash([])
 
+      // 완성 글자 모양은 정자체 글꼴 기반 표시 레이어로 그립니다.
+      // 아래 획순 polyline은 안내와 판정에만 사용하므로 두 데이터가 서로 독립적입니다.
+      drawDisplayGlyph(context, character.character, rect.width, rect.height, { color: '#a9c4ba', alpha: 0.18 })
+
+      const side = Math.min(rect.width, rect.height)
       character.strokes.forEach((stroke, index) => {
-        const scaledWidth = Math.max(5, stroke.thickness * Math.min(rect.width, rect.height))
+        const scaledWidth = clamp(stroke.thickness * side, 4.5, 17)
         if (index < completedStrokeCount) {
-          drawPolyline(context, stroke.guidePoints, rect.width, rect.height, { color: '#2f7d65', lineWidth: scaledWidth })
+          drawPolyline(context, stroke.guidePoints, rect.width, rect.height, {
+            color: '#2f7d65',
+            lineWidth: clamp(scaledWidth * 1.02, 5, 18),
+          })
           return
         }
         if (index === currentStrokeIndex) {
           const helpLevel = retryCount >= 3 ? 2 : retryCount >= 2 ? 1 : 0
+          const dashOn = clamp(side * 0.008, 4, 8)
+          const dashOff = clamp(side * 0.012, 6, 12)
           drawPolyline(context, stroke.guidePoints, rect.width, rect.height, {
-            color: helpLevel >= 2 ? '#75bfa6' : '#9ed2bf',
-            lineWidth: scaledWidth * (helpLevel >= 2 ? 1.12 : 0.95),
-            dash: reducedMotionRef.current ? undefined : [scaledWidth * 0.35, scaledWidth * 0.55],
+            color: helpLevel >= 2 ? '#65b597' : '#8bc9b2',
+            lineWidth: clamp(scaledWidth * (helpLevel >= 2 ? 1.02 : 0.84), 4.5, 16),
+            dash: reducedMotionRef.current ? undefined : [dashOn, dashOff],
+            alpha: 0.94,
           })
-          const startRadius = helpLevel >= 2 ? 13 : helpLevel === 1 ? 11 : 9
+          const startRadius = clamp(side * 0.017 + helpLevel * 1.25, 8, 14)
           context.fillStyle = '#fffefb'
           context.strokeStyle = '#2f7d65'
-          context.lineWidth = 3
+          context.lineWidth = clamp(side * 0.004, 2, 3.5)
           context.beginPath()
           context.arc(stroke.start.x * rect.width, stroke.start.y * rect.height, startRadius, 0, Math.PI * 2)
           context.fill()
           context.stroke()
           context.fillStyle = '#2f7d65'
-          context.font = `800 ${Math.max(12, startRadius)}px sans-serif`
+          context.font = `800 ${clamp(startRadius, 11, 14)}px sans-serif`
           context.textAlign = 'center'
           context.textBaseline = 'middle'
           context.fillText(String(index + 1), stroke.start.x * rect.width, stroke.start.y * rect.height + 0.5)
@@ -161,7 +185,7 @@ export default function PracticeCanvas({
             const progress = Math.min(1, elapsed / activeDuration)
             if (elapsed <= activeDuration) {
               const guidePoint = pointAtProgress(stroke.guidePoints, progress)
-              const glowRadius = helpLevel >= 1 ? 8 : 7
+              const glowRadius = clamp(side * 0.011 + (helpLevel >= 1 ? 1 : 0), 6, 10)
               const gradient = context.createRadialGradient(
                 guidePoint.x * rect.width,
                 guidePoint.y * rect.height,
@@ -182,30 +206,32 @@ export default function PracticeCanvas({
           return
         }
         drawPolyline(context, stroke.guidePoints, rect.width, rect.height, {
-          color: '#dce5e0',
-          lineWidth: scaledWidth * 0.72,
-          alpha: 0.7,
+          color: '#bad0c7',
+          lineWidth: clamp(scaledWidth * 0.5, 3.5, 9),
+          alpha: 0.24,
         })
       })
 
       if (activeStrokeRef.current.length > 1) {
         drawPolyline(context, activeStrokeRef.current, rect.width, rect.height, {
           color: '#234f42',
-          lineWidth: Math.max(6, rect.width * 0.018),
+          lineWidth: clamp(side * 0.017, 6, 15),
         })
       }
 
       if (failedStroke && failedStroke.length > 1) {
         drawPolyline(context, failedStroke, rect.width, rect.height, {
           color: '#e6a15d',
-          lineWidth: Math.max(6, rect.width * 0.018),
-          alpha: 0.72,
+          lineWidth: clamp(side * 0.017, 6, 15),
+          alpha: 0.7,
         })
       }
 
       if (phase === 'stroke-success' || phase === 'character-complete') {
         const completedIndex = Math.min(character.strokes.length - 1, Math.max(0, completedStrokeCount - 1))
         const anchor = character.strokes[completedIndex]?.end ?? { x: 0.5, y: 0.5 }
+        const innerRadius = clamp(side * 0.012, 8, 11)
+        const outerRadius = clamp(side * 0.023, 14, 19)
         context.save()
         context.translate(anchor.x * rect.width, anchor.y * rect.height)
         context.strokeStyle = '#f0b83f'
@@ -213,8 +239,8 @@ export default function PracticeCanvas({
         for (let ray = 0; ray < 8; ray += 1) {
           const angle = (Math.PI * 2 * ray) / 8
           context.beginPath()
-          context.moveTo(Math.cos(angle) * 9, Math.sin(angle) * 9)
-          context.lineTo(Math.cos(angle) * 17, Math.sin(angle) * 17)
+          context.moveTo(Math.cos(angle) * innerRadius, Math.sin(angle) * innerRadius)
+          context.lineTo(Math.cos(angle) * outerRadius, Math.sin(angle) * outerRadius)
           context.stroke()
         }
         context.restore()
@@ -290,6 +316,7 @@ export default function PracticeCanvas({
       }}
       onContextMenu={(event: { preventDefault(): void }) => event.preventDefault()}
       data-current-stroke-id={currentStroke?.id}
+      data-display-glyph-layer={DISPLAY_GLYPH_LAYER_MARKER}
     />
   )
 }
