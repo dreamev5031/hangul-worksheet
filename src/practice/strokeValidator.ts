@@ -17,6 +17,7 @@ export const BASE_STROKE_VALIDATION_CONFIG: StrokeValidationConfig = {
   maximumLengthRatio: 4.1,
   minimumNearRatio: 0.46,
   minimumCoverageRatio: 0.42,
+  minimumWaypointRatio: 0.9,
   minimumDirectionCosine: 0.05,
   maximumBoundingArea: 0.62,
 }
@@ -33,6 +34,7 @@ export function getAssistedValidationConfig(retryCount: number, stroke: StrokePa
     maximumLengthRatio: level >= 3 ? 5.4 : level === 2 ? 4.8 : 4.1,
     minimumNearRatio: level >= 3 ? 0.3 : level === 2 ? 0.38 : 0.46,
     minimumCoverageRatio: level >= 3 ? 0.28 : level === 2 ? 0.35 : 0.42,
+    minimumWaypointRatio: level >= 3 ? 0.55 : level === 2 ? 0.75 : 0.9,
     minimumDirectionCosine: level >= 3 ? -0.1 : level === 2 ? -0.02 : 0.05,
     maximumBoundingArea: level >= 3 ? 0.76 : level === 2 ? 0.69 : 0.62,
   }
@@ -52,6 +54,7 @@ export function validateStroke(
     directionCosine: 0,
     nearRatio: 0,
     coverageRatio: 0,
+    waypointRatio: 0,
     lengthRatio: 0,
     boundingArea: 0,
   }
@@ -75,8 +78,11 @@ export function validateStroke(
   const tolerance = config.baseTolerance
   const nearRatio = user.filter((point) => pointToPolylineDistance(point, reference) <= tolerance).length / user.length
   const coverageRatio = reference.filter((point) => pointToPolylineDistance(point, user) <= tolerance * 1.12).length / reference.length
+  const waypointRatio = referenceStroke.waypoints.length
+    ? referenceStroke.waypoints.filter((point) => pointToPolylineDistance(point, user) <= tolerance * 1.25).length / referenceStroke.waypoints.length
+    : 1
   const area = boundingArea(userPoints)
-  const metrics = { startDistance, endDistance, directionCosine, nearRatio, coverageRatio, lengthRatio, boundingArea: area }
+  const metrics = { startDistance, endDistance, directionCosine, nearRatio, coverageRatio, waypointRatio, lengthRatio, boundingArea: area }
 
   if (lengthRatio < config.minimumLengthRatio) return { accepted: false, reason: 'too-short', metrics }
 
@@ -93,6 +99,8 @@ export function validateStroke(
   if (startDistance > tolerance * config.startToleranceMultiplier || endDistance > tolerance * config.endToleranceMultiplier) {
     return { accepted: false, reason: 'wrong-location', metrics }
   }
+
+  if (waypointRatio < config.minimumWaypointRatio) return { accepted: false, reason: 'missed-turn', metrics }
 
   const accepted = nearRatio >= config.minimumNearRatio
     && coverageRatio >= config.minimumCoverageRatio
