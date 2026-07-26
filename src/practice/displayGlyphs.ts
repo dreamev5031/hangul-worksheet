@@ -35,24 +35,24 @@ interface GlyphTuning {
   fontWeight?: 600 | 700
 }
 
-const SYLLABLE_BOX: DisplayGlyphBox = { x: 0.14, y: 0.12, width: 0.72, height: 0.76 }
-const JAMO_BOX: DisplayGlyphBox = { x: 0.17, y: 0.14, width: 0.66, height: 0.72 }
+const SYLLABLE_BOX: DisplayGlyphBox = { x: 0.06, y: 0.06, width: 0.88, height: 0.88 }
+const JAMO_BOX: DisplayGlyphBox = { x: 0.08, y: 0.08, width: 0.84, height: 0.84 }
 
 // 호환 자모는 표시 레이어에만 작은 광학 보정을 적용합니다.
 // 판정용 획 좌표와 허용 범위는 이 데이터에 의존하지 않습니다.
 const JAMO_TUNING: Record<string, GlyphTuning> = {
-  'ㅎ': { box: { x: 0.18, y: 0.12, width: 0.64, height: 0.76 }, scaleX: 1.01, scaleY: 1.01, offsetY: -0.004, fontWeight: 700 },
-  'ㅇ': { box: { x: 0.18, y: 0.14, width: 0.64, height: 0.72 }, scaleX: 1.03, scaleY: 1.03, fontWeight: 700 },
-  'ㅅ': { box: { x: 0.17, y: 0.15, width: 0.66, height: 0.7 }, scaleX: 1.03, scaleY: 1.01, offsetY: 0.008, fontWeight: 700 },
-  'ㅈ': { box: { x: 0.16, y: 0.14, width: 0.68, height: 0.72 }, scaleX: 1.02, scaleY: 1.01, fontWeight: 700 },
-  'ㅊ': { box: { x: 0.16, y: 0.12, width: 0.68, height: 0.76 }, scaleX: 1.02, scaleY: 1.01, offsetY: -0.004, fontWeight: 700 },
-  'ㅁ': { box: { x: 0.18, y: 0.15, width: 0.64, height: 0.7 }, scaleX: 0.99, scaleY: 1.01, fontWeight: 700 },
-  'ㅂ': { box: { x: 0.17, y: 0.13, width: 0.66, height: 0.74 }, scaleX: 0.99, scaleY: 1.01, fontWeight: 700 },
-  'ㅏ': { box: { x: 0.23, y: 0.12, width: 0.54, height: 0.76 }, scaleX: 0.94, scaleY: 1.02, fontWeight: 700 },
-  'ㅓ': { box: { x: 0.23, y: 0.12, width: 0.54, height: 0.76 }, scaleX: 0.94, scaleY: 1.02, fontWeight: 700 },
-  'ㅗ': { box: { x: 0.15, y: 0.2, width: 0.7, height: 0.6 }, scaleX: 1.02, scaleY: 0.98, offsetY: -0.006, fontWeight: 700 },
-  'ㅜ': { box: { x: 0.15, y: 0.2, width: 0.7, height: 0.6 }, scaleX: 1.02, scaleY: 0.98, offsetY: 0.006, fontWeight: 700 },
-  'ㅡ': { box: { x: 0.14, y: 0.28, width: 0.72, height: 0.44 }, scaleX: 1.03, scaleY: 0.96, fontWeight: 700 },
+  'ㅎ': { box: { x: 0.09, y: 0.045, width: 0.82, height: 0.91 }, scaleX: 1.01, scaleY: 1.01, offsetY: -0.004, fontWeight: 700 },
+  'ㅇ': { box: { x: 0.09, y: 0.08, width: 0.82, height: 0.84 }, scaleX: 1.03, scaleY: 1.03, fontWeight: 700 },
+  'ㅅ': { box: { x: 0.07, y: 0.08, width: 0.86, height: 0.84 }, scaleX: 1.03, scaleY: 1.01, offsetY: 0.008, fontWeight: 700 },
+  'ㅈ': { box: { x: 0.07, y: 0.07, width: 0.86, height: 0.86 }, scaleX: 1.02, scaleY: 1.01, fontWeight: 700 },
+  'ㅊ': { box: { x: 0.07, y: 0.045, width: 0.86, height: 0.91 }, scaleX: 1.02, scaleY: 1.01, offsetY: -0.004, fontWeight: 700 },
+  'ㅁ': { box: { x: 0.09, y: 0.08, width: 0.82, height: 0.84 }, scaleX: 0.99, scaleY: 1.01, fontWeight: 700 },
+  'ㅂ': { box: { x: 0.08, y: 0.06, width: 0.84, height: 0.88 }, scaleX: 0.99, scaleY: 1.01, fontWeight: 700 },
+  'ㅏ': { box: { x: 0.15, y: 0.055, width: 0.7, height: 0.89 }, scaleX: 0.94, scaleY: 1.02, fontWeight: 700 },
+  'ㅓ': { box: { x: 0.15, y: 0.055, width: 0.7, height: 0.89 }, scaleX: 0.94, scaleY: 1.02, fontWeight: 700 },
+  'ㅗ': { box: { x: 0.07, y: 0.14, width: 0.86, height: 0.72 }, scaleX: 1.02, scaleY: 0.98, offsetY: -0.006, fontWeight: 700 },
+  'ㅜ': { box: { x: 0.07, y: 0.14, width: 0.86, height: 0.72 }, scaleX: 1.02, scaleY: 0.98, offsetY: 0.006, fontWeight: 700 },
+  'ㅡ': { box: { x: 0.06, y: 0.22, width: 0.88, height: 0.56 }, scaleX: 1.03, scaleY: 0.96, fontWeight: 700 },
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -110,8 +110,8 @@ export function drawDisplayGlyph(
   const targetHeight = descriptor.box.height * height / descriptor.scaleY
   const fontSize = clamp(
     Math.min(targetWidth * 0.96, targetHeight * 0.92),
-    side * 0.3,
-    side * 0.72,
+    side * 0.34,
+    side * 0.84,
   )
   const centerX = (descriptor.box.x + descriptor.box.width / 2 + descriptor.offsetX * descriptor.box.width) * width
   const centerY = (descriptor.box.y + descriptor.box.height / 2 + descriptor.offsetY * descriptor.box.height) * height
