@@ -26,15 +26,15 @@ export const COMPLEX_BOTTOM_VOWELS = new Set(['ㅝ', 'ㅞ', 'ㅟ'])
 const BASE_TEMPLATES: Record<SyllableLayoutType, SyllableLayoutTemplate> = {
   'vertical-no-final': {
     type: 'vertical-no-final',
-    initial: { x: 0.13, y: 0.13, width: 0.34, height: 0.7 },
-    medial: [{ x: 0.47, y: 0.11, width: 0.31, height: 0.74 }],
-    minimumGap: 0.035,
+    initial: { x: 0.13, y: 0.13, width: 0.31, height: 0.7 },
+    medial: [{ x: 0.5, y: 0.11, width: 0.28, height: 0.74 }],
+    minimumGap: 0.055,
     target: { x: 0.12, y: 0.1, width: 0.76, height: 0.8 },
   },
   'vertical-with-final': {
     type: 'vertical-with-final',
-    initial: { x: 0.14, y: 0.09, width: 0.33, height: 0.47 },
-    medial: [{ x: 0.48, y: 0.08, width: 0.29, height: 0.49 }],
+    initial: { x: 0.14, y: 0.09, width: 0.3, height: 0.47 },
+    medial: [{ x: 0.5, y: 0.08, width: 0.27, height: 0.49 }],
     final: { x: 0.27, y: 0.65, width: 0.46, height: 0.27 },
     clusterFinal: [
       { x: 0.23, y: 0.67, width: 0.25, height: 0.24 },
@@ -45,15 +45,15 @@ const BASE_TEMPLATES: Record<SyllableLayoutType, SyllableLayoutTemplate> = {
   },
   'horizontal-no-final': {
     type: 'horizontal-no-final',
-    initial: { x: 0.22, y: 0.11, width: 0.56, height: 0.32 },
-    medial: [{ x: 0.14, y: 0.47, width: 0.72, height: 0.26 }],
+    initial: { x: 0.19, y: 0.11, width: 0.62, height: 0.32 },
+    medial: [{ x: 0.13, y: 0.47, width: 0.74, height: 0.26 }],
     minimumGap: 0.045,
     target: { x: 0.13, y: 0.11, width: 0.74, height: 0.78 },
   },
   'horizontal-with-final': {
     type: 'horizontal-with-final',
-    initial: { x: 0.23, y: 0.07, width: 0.54, height: 0.27 },
-    medial: [{ x: 0.15, y: 0.36, width: 0.7, height: 0.2 }],
+    initial: { x: 0.2, y: 0.07, width: 0.6, height: 0.27 },
+    medial: [{ x: 0.13, y: 0.36, width: 0.74, height: 0.2 }],
     final: { x: 0.27, y: 0.65, width: 0.46, height: 0.27 },
     clusterFinal: [
       { x: 0.23, y: 0.67, width: 0.25, height: 0.24 },
