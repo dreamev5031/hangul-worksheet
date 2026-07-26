@@ -78,7 +78,7 @@ export default function SiteLayout({ children, currentPath }: SiteLayoutProps) {
         <div className="footer-brand">
           <strong>{SITE_NAME}</strong>
           <p>부모가 아이와 함께 쓰는 무료 한글 학습 도구</p>
-          <small>입력 내용과 필기 이미지는 서버로 전송하지 않으며, 연습 기록은 현재 브라우저에만 저장됩니다.</small>
+          <small>입력 내용과 필기 이미지는 서버로 전송하지 않으며, 완료 글자와 재시도 기록만 현재 브라우저에 저장됩니다.</small>
         </div>
         <nav className="footer-links" aria-label="정책 및 안내 메뉴">
           {policyLinks.map((link) => <a key={link.href} href={link.href}>{link.label}</a>)}

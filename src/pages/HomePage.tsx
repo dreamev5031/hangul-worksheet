@@ -21,11 +21,7 @@ const initialSettings: WorksheetSettings = {
   includePraise: true,
 }
 
-const initialPracticeConfig: PracticeSessionConfig = {
-  rawText: initialSettings.rawWords,
-  displayMode: 'faint',
-  progressMode: 'character',
-}
+const initialPracticeConfig: PracticeSessionConfig = { rawText: initialSettings.rawWords }
 
 export default function HomePage() {
   const [settings, setSettings] = useState(initialSettings)
@@ -69,14 +65,14 @@ export default function HomePage() {
   const handleStartPractice = () => {
     const config = { ...practiceConfig, rawText: settings.rawWords }
     savePracticeConfig(config)
-    window.location.href = '/practice/'
+    window.location.href = '/practice/?start=1'
   }
 
   return (
     <>
       <Seo
         title="자유 입력 맞춤 한글 학습지와 화면 연습"
-        description="자음, 모음, 한 글자, 단어, 아이 이름과 짧은 문장을 자유롭게 입력해 A4 한글 학습지를 만들거나 화면에서 바로 따라 쓰고 점수를 확인하세요."
+        description="자음, 모음, 한 글자와 이름을 입력해 A4 한글 학습지를 만들거나 올바른 획순을 한 획씩 따라 써 보세요."
         path="/"
       />
 
@@ -110,11 +106,7 @@ export default function HomePage() {
           {creationMode === 'print' ? (
             <WorksheetPreview ref={previewRef} settings={settings} words={words} />
           ) : (
-            <PracticePreview
-              rawText={settings.rawWords}
-              displayMode={practiceConfig.displayMode}
-              progressMode={practiceConfig.progressMode}
-            />
+            <PracticePreview rawText={settings.rawWords} />
           )}
         </div>
       </section>
@@ -122,8 +114,8 @@ export default function HomePage() {
       <article className="home-content no-print" aria-labelledby="home-guide-title">
         <header className="content-intro">
           <p className="eyebrow">부모님을 위한 활용 안내</p>
-          <h2 id="home-guide-title">화면에서 약한 글자를 찾고, 인쇄 학습지로 이어가세요</h2>
-          <p>화면 연습 점수는 아이의 쓰기 활동을 돕는 참고 값입니다. 낮은 점수 글자는 세션이 끝난 뒤 기존 A4 학습지에 자동으로 넣어 다시 연습할 수 있습니다.</p>
+          <h2 id="home-guide-title">화면에서 획순을 익히고, 인쇄 학습지로 이어가세요</h2>
+          <p>화면 연습은 올바른 획순을 한 획씩 안내하고 손을 떼는 순간 현재 획을 자동으로 확인합니다. 다시 써본 글자는 세션이 끝난 뒤 기존 A4 학습지에 연결할 수 있습니다.</p>
         </header>
 
         <div className="info-grid">
@@ -135,17 +127,17 @@ export default function HomePage() {
           <section className="info-card">
             <span className="info-number">02</span>
             <h3>화면 연습은 어떻게 하나요?</h3>
-            <p>연습할 내용을 입력하고 화면 연습을 선택하세요. 손가락, 스타일러스, 마우스로 따라 쓴 뒤 모양과 위치, 완성도, 선 안정성 점수를 확인할 수 있습니다.</p>
+            <p>연습할 내용을 입력하고 화면 연습을 선택하세요. 손가락, 스타일러스 또는 마우스로 현재 획을 따라 쓰면 맞는 획은 고정되고 다음 획으로 자동 이동합니다.</p>
           </section>
           <section className="info-card">
             <span className="info-number">03</span>
-            <h3>점수는 어떻게 활용하나요?</h3>
-            <p>점수는 공식 진단이 아니라 반복 연습을 돕는 참고 값입니다. 최고 점수와 처음 점수의 차이를 보고 아이가 나아진 부분을 함께 찾아 주세요.</p>
+            <h3>재도전은 어떻게 도와주나요?</h3>
+            <p>같은 획이 어려우면 시작점과 방향 안내가 더 또렷해지고 허용 범위도 넓어집니다. 실패 횟수나 점수는 아이 화면에 보여주지 않습니다.</p>
           </section>
           <section className="info-card">
             <span className="info-number">04</span>
             <h3>인쇄 학습지로 이어가기</h3>
-            <p>세션 완료 화면에서 점수가 낮은 글자를 선택하면 기존 학습지 입력창과 따라쓰기 많이 설정이 자동으로 적용됩니다.</p>
+            <p>세션 완료 화면에서 전체 글자 또는 다시 써본 글자를 선택하면 기존 학습지 입력창과 따라쓰기 많이 설정이 자동으로 적용됩니다.</p>
           </section>
         </div>
 
@@ -154,7 +146,7 @@ export default function HomePage() {
             <p className="eyebrow">입력 정보 보호</p>
             <h3>연습과 분석은 이 브라우저 안에서 실행돼요</h3>
           </div>
-          <p>입력한 이름과 단어, 필기 이미지는 서버에 업로드되지 않습니다. 연습 기록에는 날짜와 점수만 저장되며 브라우저 데이터를 삭제하면 함께 사라질 수 있습니다.</p>
+          <p>입력한 이름과 단어, 필기 이미지는 서버에 업로드되지 않습니다. 연습 기록에는 날짜, 완성한 글자와 재시도 횟수만 저장되며 브라우저 데이터를 삭제하면 함께 사라질 수 있습니다.</p>
           <a href="/privacy/">개인정보 처리방침 자세히 보기</a>
         </section>
 

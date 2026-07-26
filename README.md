@@ -1,6 +1,6 @@
 # 오늘의 한글 학습지
 
-부모가 아이 이름이나 좋아하는 단어를 입력해 A4 한글 따라쓰기 학습지를 만들 수 있는 MVP입니다. 모든 기능은 브라우저 안에서 동작하며 서버, 데이터베이스, 로그인, AI API를 사용하지 않습니다.
+부모가 아이 이름이나 좋아하는 단어를 입력해 A4 한글 학습지를 만들고, 같은 내용을 손가락·스타일러스·마우스로 화면에서 따라 쓸 수 있는 브라우저 기반 도구입니다. 서버, 데이터베이스, 로그인, LLM 또는 외부 이미지 분석 API를 사용하지 않습니다.
 
 ## 실행 방법
 
@@ -11,79 +11,34 @@ npm install
 npm run dev
 ```
 
-화면에 표시된 로컬 주소를 브라우저에서 열면 됩니다.
-
-프로덕션 빌드는 다음 명령으로 확인할 수 있습니다.
-
-```bash
-npm run build
-```
-
-완성된 정적 파일은 `dist` 폴더에 생성됩니다.
+프로덕션 빌드는 `npm run build`로 확인하며 결과는 `dist`에 생성됩니다.
 
 ## Cloudflare Pages 배포
 
-1. Cloudflare 대시보드에서 **Workers & Pages → Create → Pages → Connect to Git**을 선택합니다.
-2. GitHub 저장소 `dreamev5031/hangul-worksheet`를 선택합니다.
-3. 아래 값으로 프로젝트를 설정합니다.
+- Framework preset: `Vite`
+- Build command: `npm run build`
+- Build output directory: `dist`
+- Production branch: `main`
 
-| 설정 | 값 |
-| --- | --- |
-| Project name | `hangul-worksheet` |
-| Production branch | `main` |
-| Framework preset | `Vite` |
-| Build command | `npm run build` |
-| Build output directory | `dist` |
-| Root directory | 비워 둠 |
-| Environment variables | 없음 |
-
-4. **Save and Deploy**를 누릅니다.
-
-서버 기능이나 환경 변수는 필요하지 않습니다. `main` 브랜치에 변경 사항을 올리면 Cloudflare Pages가 자동으로 다시 배포합니다.
-
-Vite의 `base`는 `/`로 설정되어 있어 `https://hangul-worksheet.pages.dev/`의 루트 경로에서 정적 자산을 정상적으로 불러옵니다. 이 프로젝트는 React Router 기반 SPA가 아니라 `/about/`, `/privacy/` 같은 각 경로에 실제 `index.html`을 생성하는 정적 멀티페이지 구조이므로 Cloudflare Pages에서 해당 주소를 새로고침해도 SPA fallback 설정이 필요하지 않습니다. 존재하지 않는 주소에는 빌드된 `404.html`이 사용됩니다.
+이 프로젝트는 React Router SPA가 아니라 각 경로에 실제 `index.html`을 생성하는 정적 멀티페이지 구조입니다. `/practice/`, `/about/`, `/privacy/`, `/terms/`, `/contact/`, `/guide/`, `/faq/`를 새로고침해도 Cloudflare Pages에서 404가 발생하지 않습니다.
 
 ## 주요 기능
 
-- 줄바꿈 또는 쉼표로 여러 한글 단어 입력
-- 연령, 템플릿, 글자 크기, 반복 줄 수 선택
-- 빈칸 연습과 칭찬 문구 선택
-- 고정 A4 비율 실시간 미리보기
-- `html2canvas`와 `jsPDF`를 사용한 PDF 저장
-- `window.print()`와 인쇄 전용 CSS를 사용한 학습지 인쇄
+- 줄바꿈 또는 쉼표로 글자·단어·이름·짧은 문장 입력
+- 기존 A4 미리보기, PDF 다운로드와 인쇄 기능
+- 글자 크기, 따라쓰기/빈칸 비율, 이름·날짜·빈칸·칭찬 설정
+- `/practice/`에서 Pointer Events 기반 손가락·펜·마우스 필기
+- 현재 획의 시작점·방향·반복 애니메이션과 완료 획 고정 표시
+- `Intl.Segmenter` 기반 한글 음절·호환 자모 한 글자씩 분리
+- 자모별 정규화 획 경로와 Unicode 음절 분해 기반 획순 안내
+- pointerup 시 시작점·방향·경로 근접도 기반 한 획 자동 판정
+- 다시 써본 글자를 기존 “따라쓰기 많이” 인쇄 학습지로 자동 연결
+- 필기 이미지와 획 원본을 저장하지 않는 브라우저 전용 연습 기록
 
-학습지 글꼴은 `src/styles.css`의 `--font-worksheet` CSS 변수에서 쉽게 교체할 수 있습니다.
+학습지와 화면 기준 글꼴은 `src/styles.css`의 `--font-worksheet`와 같은 시스템 한글 글꼴 계열을 사용합니다.
 
-## 정보 페이지와 SEO 설정
+## 개인정보 처리
 
-사이트에는 `/about/`, `/privacy/`, `/terms/`, `/contact/`, `/guide/`, `/faq/`와 `404.html`이 포함됩니다. 각 페이지는 고유한 title, description, Open Graph 태그와 canonical URL을 갖는 정적 HTML로 빌드됩니다.
+입력한 이름과 단어, 필기 이미지와 실제 획 좌표는 서버에 업로드하지 않습니다. 분석은 현재 브라우저에서 실행합니다. 완료 기록에는 날짜, 완성한 글자, 재시도 횟수와 연습 시간만 versioned localStorage에 저장하며 연습 기록 화면에서 삭제할 수 있습니다.
 
-기본 canonical URL은 프로젝트 이름에 맞춘 `https://hangul-worksheet.pages.dev`입니다. 나중에 사용자 정의 도메인을 연결한다면 Cloudflare Pages 환경 변수에 아래 값을 추가하세요.
-
-```text
-VITE_SITE_URL=https://your-domain.com
-```
-
-사용자 정의 도메인을 연결할 때는 `public/robots.txt`와 `public/sitemap.xml`의 `https://hangul-worksheet.pages.dev`도 새 도메인으로 바꿔야 합니다. 문의 주소는 `src/config.ts`의 `CONTACT_EMAIL` 상수에서 변경할 수 있습니다.
-
-## AdSense 신청 전 확인할 것
-
-- [ ] 실제 도메인과 canonical URL이 일치하는지 확인
-- [ ] `robots.txt`와 `sitemap.xml`의 예시 도메인을 실제 도메인으로 교체
-- [ ] About, Privacy, Terms, Contact, Guide, FAQ 페이지의 내용과 내부 링크 확인
-- [ ] 임시 문의 주소 `hello@example.com`을 실제 운영 이메일로 교체
-- [ ] 개인정보 처리방침이 실제 서비스의 광고·분석 도구 사용 여부와 일치하는지 확인
-- [ ] 홈과 가이드에 방문자에게 유용한 설명 콘텐츠가 충분한지 검토
-- [ ] 광고가 입력폼, PDF 다운로드, 인쇄 버튼, A4 미리보기와 충분히 떨어져 있는지 확인
-- [ ] 광고 클릭을 유도하거나 광고를 콘텐츠처럼 보이게 하는 문구가 없는지 확인
-- [ ] 실제 AdSense 코드는 승인 및 설정 준비가 끝난 뒤 placeholder 위치에만 추가
-- [ ] 광고나 분석 도구가 쿠키를 사용한다면 필요한 고지·동의 절차 준비
-- [ ] AdSense 게시자 ID가 발급된 뒤 공식 안내에 따라 `ads.txt` 추가 여부 확인
-- [ ] 모바일 화면에서 메뉴, 입력폼, 학습지 미리보기와 정보 페이지 확인
-- [ ] A4 PDF 저장과 인쇄 결과를 Chrome, Safari 또는 Edge에서 확인
-- [ ] Lighthouse로 접근성, SEO, 성능 기본 항목 점검
-- [ ] 배포 직전 `npm run build`가 성공하는지 확인
-
-현재 프로젝트에는 실제 광고 코드, 분석 코드, 외부 추적 스크립트, 로그인, 쿠키 기반 사용자 추적 기능이 없습니다.
-
-Cloudflare Pages deployment check
+기본 canonical URL은 `https://hangul-worksheet.pages.dev`입니다. 사용자 정의 도메인을 연결하면 `VITE_SITE_URL`, `public/robots.txt`와 `public/sitemap.xml`을 함께 변경하세요.

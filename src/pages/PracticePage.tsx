@@ -1,56 +1,52 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ChangeEvent } from 'react'
 import PracticeCanvas from '../components/PracticeCanvas'
-import type { PracticeCanvasHandle } from '../components/PracticeCanvas'
+import PracticeSessionControls from '../components/PracticeSessionControls'
+import PracticeSessionHeader from '../components/PracticeSessionHeader'
 import Seo from '../components/Seo'
+import { createAudioFeedbackController } from '../practice/audioFeedback'
+import { calculatePracticeLayout } from '../practice/layout'
 import { parsePracticeItems } from '../practice/parser'
-import { scorePractice } from '../practice/scoring'
 import {
-  PRACTICE_PROGRESS_KEY,
   WORKSHEET_PREFILL_KEY,
+  applyStrokeOutcome,
+  createPracticeSessionState,
+  getRetriedItems,
   loadPracticeConfig,
+  restartCurrentCharacter,
   savePracticeConfig,
 } from '../practice/session'
+import { generateCharacterStrokes } from '../practice/syllableLayout'
 import {
   calculateStreak,
   createSessionRecord,
   deletePracticeRecords,
-  getBestScoresByItem,
-  getRecentSevenDays,
+  getFrequentRetriedItems,
+  getTodayCompletedCount,
+  getTotalCompletedCharacters,
   loadPracticeRecords,
+  loadSoundEnabled,
   savePracticeSession,
+  saveSoundEnabled,
 } from '../practice/storage'
+import { validateStroke } from '../practice/strokeValidator'
 import type {
-  PracticeItemResult,
-  PracticeScore,
+  AudioFeedbackController,
+  PracticePoint,
   PracticeSessionConfig,
-  PracticeSessionRecord,
+  PracticeSessionRecordV2,
+  PracticeSessionState,
 } from '../practice/types'
 
-const defaultConfig: PracticeSessionConfig = {
-  rawText: 'ㄱ\n가\n사과\n김민준',
-  displayMode: 'faint',
-  progressMode: 'character',
-}
-
+const defaultConfig: PracticeSessionConfig = { rawText: 'ㄱ\n가\n사과\n김민준' }
 type PracticeView = 'setup' | 'practice' | 'complete' | 'history'
+type PracticePhase = 'writing' | 'stroke-success' | 'retry' | 'character-complete'
 
-interface SavedProgress {
-  config: PracticeSessionConfig
-  currentIndex: number
-  results: Array<PracticeItemResult | null>
-}
-
-function getTodayKey() {
-  const now = new Date()
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-}
-
-function scoreLabel(score: number) {
-  if (score >= 90) return '아주 좋아요'
-  if (score >= 75) return '잘했어요'
-  if (score >= 55) return '조금만 더'
-  return '천천히 다시 해봐요'
+function formatDuration(durationMs: number): string {
+  const seconds = Math.max(0, Math.round(durationMs / 1000))
+  const minutes = Math.floor(seconds / 60)
+  const remainder = seconds % 60
+  return minutes > 0 ? `${minutes}분 ${remainder}초` : `${remainder}초`
 }
 
 function SetupView({
@@ -62,128 +58,34 @@ function SetupView({
   onChange: (config: PracticeSessionConfig) => void
   onStart: () => void
 }) {
-  const parsed = parsePracticeItems(config.rawText, config.progressMode)
+  const parsed = parsePracticeItems(config.rawText)
   return (
     <section className="practice-setup-page" aria-labelledby="practice-setup-title">
       <div className="practice-setup-card">
-        <p className="eyebrow">화면에서 바로 연습</p>
-        <h1 id="practice-setup-title">연습할 내용을 입력해 주세요</h1>
-        <p>손가락, 펜 또는 마우스로 따라 쓰고 브라우저에서 참고 점수를 확인할 수 있어요.</p>
+        <p className="eyebrow">한 획씩 따라쓰기</p>
+        <h1 id="practice-setup-title">연습할 한글을 입력해 주세요</h1>
+        <p>올바른 획순을 한 획씩 안내하고, 손을 떼면 현재 획을 자동으로 확인해요.</p>
         <label htmlFor="practice-direct-input">연습 내용</label>
         <textarea
           id="practice-direct-input"
           value={config.rawText}
-          onChange={(event: ChangeEvent<HTMLTextAreaElement>) => onChange({ ...config, rawText: event.target.value })}
+          onChange={(event: ChangeEvent<HTMLTextAreaElement>) => onChange({ rawText: event.target.value })}
           rows={6}
           placeholder={'ㄱ\n가\n사과\n김민준'}
         />
-
-        <fieldset className="practice-setup-fieldset">
-          <legend>표시 방식</legend>
-          <div className="segmented practice-display-options">
-            {([
-              ['faint', '흐린 글자'],
-              ['dotted', '점선 글자'],
-              ['independent', '혼자 쓰기'],
-            ] as const).map(([value, label]) => (
-              <label key={value} className={config.displayMode === value ? 'selected' : ''}>
-                <input
-                  type="radio"
-                  name="directDisplayMode"
-                  checked={config.displayMode === value}
-                  onChange={() => onChange({ ...config, displayMode: value })}
-                />
-                <strong>{label}</strong>
-              </label>
-            ))}
-          </div>
-        </fieldset>
-
-        <fieldset className="practice-setup-fieldset">
-          <legend>진행 방식</legend>
-          <div className="segmented two-up">
-            <label className={config.progressMode === 'character' ? 'selected' : ''}>
-              <input
-                type="radio"
-                name="directProgressMode"
-                checked={config.progressMode === 'character'}
-                onChange={() => onChange({ ...config, progressMode: 'character' })}
-              />
-              <strong>한 글자씩</strong>
-            </label>
-            <label className={config.progressMode === 'line' ? 'selected' : ''}>
-              <input
-                type="radio"
-                name="directProgressMode"
-                checked={config.progressMode === 'line'}
-                onChange={() => onChange({ ...config, progressMode: 'line' })}
-              />
-              <strong>입력한 줄 그대로</strong>
-            </label>
-          </div>
-        </fieldset>
-
         <div className="practice-setup-summary">
-          <strong>{parsed.items.length}개 항목</strong>
+          <strong>{parsed.items.length}개 글자</strong>
           <span>예상 약 {parsed.estimatedMinutes}분</span>
         </div>
-        {parsed.truncated && <p className="limit-notice">앞의 10개 항목만 연습에 사용해요.</p>}
+        {parsed.excluded.length > 0 && (
+          <p className="limit-notice" role="status">
+            화면 연습에서는 한글만 사용해요. 제외된 문자: {parsed.excluded.join(' ')}
+          </p>
+        )}
+        {parsed.truncated && <p className="limit-notice">앞의 10개 글자만 연습에 사용해요.</p>}
         <button className="primary-button practice-start-button" type="button" onClick={onStart} disabled={!parsed.items.length}>
-          화면 연습 시작하기
+          획순 연습 시작하기
         </button>
-      </div>
-    </section>
-  )
-}
-
-function ScoreCard({
-  item,
-  result,
-  latestScore,
-  isTodayBest,
-  onRetry,
-  onNext,
-  isLast,
-}: {
-  item: string
-  result: PracticeItemResult
-  latestScore: PracticeScore
-  isTodayBest: boolean
-  onRetry: () => void
-  onNext: () => void
-  isLast: boolean
-}) {
-  const breakdown = latestScore
-  return (
-    <section className="practice-score-card" aria-live="polite" aria-labelledby="score-card-title">
-      <div className="score-card-heading">
-        <div>
-          <span>현재 글자</span>
-          <h2 id="score-card-title">{item}</h2>
-        </div>
-        <div className="total-score">
-          <strong>{latestScore.total}</strong><span>점</span>
-          <small>{scoreLabel(latestScore.total)}</small>
-        </div>
-      </div>
-      <div className="best-score-line">
-        <strong>최고 점수 {result.bestScore}점</strong>
-        <span>첫 점수 {result.firstScore}점 · {result.attempts}번 시도</span>
-        {isTodayBest && <em>오늘 이 글자의 최고점이에요</em>}
-      </div>
-      <dl className="score-breakdown">
-        <div><dt>모양 일치도</dt><dd>{breakdown.shape} / 50</dd></div>
-        <div><dt>크기와 위치</dt><dd>{breakdown.sizePosition} / 20</dd></div>
-        <div><dt>완성도</dt><dd>{breakdown.completion} / 20</dd></div>
-        <div><dt>선 안정성</dt><dd>{breakdown.stability} / 10</dd></div>
-      </dl>
-      <div className="practice-feedback">
-        {latestScore.feedback.map((message) => <p key={message}>{message}</p>)}
-      </div>
-      <p className="score-disclaimer">이 점수는 화면 따라쓰기 연습을 돕기 위한 참고 점수예요.</p>
-      <div className="practice-result-actions">
-        <button type="button" className="secondary-button" onClick={onRetry}>다시 쓰기</button>
-        <button type="button" className="primary-button" onClick={onNext}>{isLast ? '연습 마치기' : '다음 글자'}</button>
       </div>
     </section>
   )
@@ -192,10 +94,7 @@ function ScoreCard({
 function HistoryView({ onBack }: { onBack: () => void }) {
   const [records, setRecords] = useState(() => loadPracticeRecords())
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-  const today = getTodayKey()
-  const recentDays = getRecentSevenDays(records)
-  const bestScores = getBestScoresByItem(records)
-  const todayCount = records.filter((record) => record.date === today).length
+  const frequent = getFrequentRetriedItems(records)
 
   const handleDelete = () => {
     deletePracticeRecords()
@@ -214,22 +113,10 @@ function HistoryView({ onBack }: { onBack: () => void }) {
       </div>
 
       <div className="history-summary-grid">
-        <article><span>오늘 연습</span><strong>{todayCount}회</strong></article>
+        <article><span>오늘 완료한 연습</span><strong>{getTodayCompletedCount(records)}회</strong></article>
         <article><span>연속 연습일</span><strong>{calculateStreak(records)}일</strong></article>
-        <article><span>저장된 세션</span><strong>{records.length}개</strong></article>
+        <article><span>총 완성 글자</span><strong>{getTotalCompletedCharacters(records)}개</strong></article>
       </div>
-
-      <section className="recent-days-card">
-        <h2>최근 7일 연습일</h2>
-        <div className="recent-days" aria-label="최근 7일 연습 여부">
-          {recentDays.map((day) => (
-            <div key={day.date} className={day.practiced ? 'practiced' : ''}>
-              <span>{day.date.slice(5)}</span>
-              <strong>{day.practiced ? '연습함' : '쉬는 날'}</strong>
-            </div>
-          ))}
-        </div>
-      </section>
 
       <section className="history-list-card">
         <h2>최근 세션</h2>
@@ -237,31 +124,37 @@ function HistoryView({ onBack }: { onBack: () => void }) {
           <div className="history-session-list">
             {records.slice(0, 10).map((record) => (
               <article key={record.id}>
-                <div><strong>{record.items.map((item) => item.item).join(' · ')}</strong><span>{new Date(record.createdAt).toLocaleString('ko-KR')}</span></div>
-                <div><strong>평균 {record.average}점</strong><span>{record.totalAttempts}번 시도</span></div>
+                <div>
+                  <strong>{record.items.join(' · ')}</strong>
+                  <span>{new Date(record.completedAt).toLocaleString('ko-KR')}</span>
+                </div>
+                <div>
+                  <strong>{record.completedCount}글자 완성</strong>
+                  <span>다시 쓰기 {record.totalRetries}회 · {formatDuration(record.durationMs)}</span>
+                </div>
               </article>
             ))}
           </div>
-        ) : <p className="empty-history">아직 저장된 연습 기록이 없어요.</p>}
+        ) : <p className="empty-history">아직 저장된 완료 기록이 없어요.</p>}
       </section>
 
       <section className="history-list-card">
-        <h2>글자별 최고점</h2>
-        {bestScores.length ? (
-          <div className="best-item-grid">
-            {bestScores.slice(0, 20).map(([item, score]) => <div key={item}><strong>{item}</strong><span>{score}점</span></div>)}
+        <h2>자주 다시 쓴 글자</h2>
+        {frequent.length ? (
+          <div className="retry-item-grid">
+            {frequent.slice(0, 20).map(([item, count]) => <div key={item}><strong>{item}</strong><span>{count}회</span></div>)}
           </div>
-        ) : <p className="empty-history">연습을 마치면 글자별 최고점이 표시돼요.</p>}
+        ) : <p className="empty-history">다시 쓴 글자가 생기면 여기에 표시돼요.</p>}
       </section>
 
       <button type="button" className="danger-button" onClick={() => setShowDeleteConfirm(true)} disabled={!records.length}>전체 기록 삭제</button>
-      <p className="history-privacy-note">필기 이미지와 실제 획 좌표는 기록에 저장하지 않습니다. 브라우저 데이터를 삭제하면 이 기록도 사라질 수 있어요.</p>
+      <p className="history-privacy-note">날짜, 완성한 글자와 재시도 횟수만 저장합니다. 필기 이미지와 실제 획 좌표는 저장하지 않습니다.</p>
 
       {showDeleteConfirm && (
         <div className="confirm-modal-backdrop" role="presentation">
           <div className="confirm-modal" role="dialog" aria-modal="true" aria-labelledby="delete-records-title">
             <h2 id="delete-records-title">모든 연습 기록을 삭제할까요?</h2>
-            <p>삭제한 점수 기록은 되돌릴 수 없어요.</p>
+            <p>삭제한 완료·재시도 기록은 되돌릴 수 없어요.</p>
             <div>
               <button type="button" className="secondary-button" onClick={() => setShowDeleteConfirm(false)}>취소</button>
               <button type="button" className="danger-button" onClick={handleDelete}>삭제하기</button>
@@ -275,226 +168,231 @@ function HistoryView({ onBack }: { onBack: () => void }) {
 
 function CompleteView({
   record,
-  onRetryWeak,
+  streak,
+  onRepeatAll,
+  onRepeatRetried,
   onWorksheet,
-  onRestart,
+  onNewPractice,
   onHistory,
 }: {
-  record: PracticeSessionRecord
-  onRetryWeak: () => void
-  onWorksheet: () => void
-  onRestart: () => void
+  record: PracticeSessionRecordV2
+  streak: number
+  onRepeatAll: () => void
+  onRepeatRetried: () => void
+  onWorksheet: (scope: 'all' | 'retried') => void
+  onNewPractice: () => void
   onHistory: () => void
 }) {
-  const sortedByScore = [...record.items].sort((a, b) => a.bestScore - b.bestScore)
-  const weak = sortedByScore.slice(0, 3)
-  const improved = [...record.items].sort((a, b) => (b.bestScore - b.firstScore) - (a.bestScore - a.firstScore))[0]
+  const [worksheetScope, setWorksheetScope] = useState<'all' | 'retried'>(record.retriedItems.length ? 'retried' : 'all')
   return (
     <section className="practice-complete-page" aria-labelledby="complete-title">
       <div className="complete-celebration">
         <span aria-hidden="true">★</span>
         <p className="eyebrow">오늘 연습 완료</p>
-        <h1 id="complete-title">끝까지 연습했어요!</h1>
-        <p>처음 점수보다 좋아진 글자를 함께 찾아 칭찬해 주세요.</p>
+        <h1 id="complete-title">오늘 연습을 모두 마쳤어요!</h1>
+        <p>한 획씩 끝까지 따라 쓴 과정을 함께 칭찬해 주세요.</p>
       </div>
 
       <div className="complete-summary-grid">
-        <article><span>오늘의 평균 점수</span><strong>{record.average}점</strong></article>
-        <article><span>최고 점수</span><strong>{record.best}점</strong></article>
-        <article><span>총 연습 글자 수</span><strong>{record.items.length}개</strong></article>
-        <article><span>총 시도 횟수</span><strong>{record.totalAttempts}회</strong></article>
+        <article><span>완성한 글자</span><strong>{record.completedCount}개</strong></article>
+        <article><span>다시 써본 글자</span><strong>{record.retriedItems.length}개</strong></article>
+        <article><span>총 다시 쓰기</span><strong>{record.totalRetries}회</strong></article>
+        <article><span>연습 시간</span><strong>{formatDuration(record.durationMs)}</strong></article>
+        <article><span>연속 연습일</span><strong>{streak}일</strong></article>
       </div>
 
-      <section className="improvement-card">
-        <h2>가장 많이 좋아진 글자</h2>
-        {improved ? (
-          <div><strong>{improved.item}</strong><span>첫 {improved.firstScore}점 → 최고 {improved.bestScore}점</span><em>+{improved.bestScore - improved.firstScore}점</em></div>
-        ) : <p>이번 세션의 기록이 없어요.</p>}
+      <section className="completed-items-card">
+        <h2>완성한 글자</h2>
+        <div>{record.items.map((item) => <span key={item}>{item}</span>)}</div>
       </section>
 
-      <section className="weak-items-card">
-        <h2>한 번 더 연습하면 좋은 글자</h2>
-        <div>{weak.map((item) => <span key={item.item}><strong>{item.item}</strong>{item.bestScore}점</span>)}</div>
-        <p>낮은 점수는 실패가 아니라 다음 연습 내용을 고르는 참고 값이에요.</p>
+      <section className="completed-items-card">
+        <h2>다시 써본 글자</h2>
+        {record.retriedItems.length
+          ? <div>{record.retriedItems.map((item) => <span key={item}>{item}</span>)}</div>
+          : <p>모든 획을 한 번에 잘 따라 썼어요!</p>}
       </section>
 
-      <section className="improvement-list-card">
-        <h2>최초 점수와 최고 점수 차이</h2>
-        <div>
-          {record.items.map((item) => (
-            <article key={item.item}>
-              <strong>{item.item}</strong>
-              <span>{item.firstScore}점 → {item.bestScore}점</span>
-              <em>+{item.bestScore - item.firstScore}점</em>
-            </article>
-          ))}
-        </div>
-      </section>
+      <fieldset className="worksheet-scope-card">
+        <legend>인쇄 학습지에 넣을 글자</legend>
+        <label><input type="radio" name="worksheetScope" checked={worksheetScope === 'all'} onChange={() => setWorksheetScope('all')} /> 전체 글자</label>
+        <label><input type="radio" name="worksheetScope" checked={worksheetScope === 'retried'} onChange={() => setWorksheetScope('retried')} disabled={!record.retriedItems.length} /> 다시 써본 글자</label>
+      </fieldset>
 
       <div className="complete-actions">
-        <button type="button" className="primary-button" onClick={onRetryWeak}>낮은 점수 글자 다시 연습</button>
-        <button type="button" className="worksheet-link-button" onClick={onWorksheet}>이 글자들로 학습지 만들기</button>
-        <button type="button" className="secondary-button" onClick={onRestart}>처음부터 새 연습</button>
+        <button type="button" className="primary-button" onClick={onRepeatAll}>한 번 더 연습하기</button>
+        <button type="button" className="secondary-button" onClick={onRepeatRetried} disabled={!record.retriedItems.length}>다시 써본 글자만 연습하기</button>
+        <button type="button" className="worksheet-link-button" onClick={() => onWorksheet(worksheetScope)}>이 글자들로 인쇄 학습지 만들기</button>
+        <button type="button" className="secondary-button" onClick={onNewPractice}>새 연습 만들기</button>
         <button type="button" className="secondary-button" onClick={onHistory}>연습 기록 보기</button>
       </div>
-      <p className="score-disclaimer">이 점수는 화면 따라쓰기 연습을 돕기 위한 참고 점수예요.</p>
       <div className="safe-ad-zone" aria-label="향후 광고 배치 가능 영역" />
     </section>
   )
 }
 
 export default function PracticePage() {
-  const queryWantsHistory = new URLSearchParams(window.location.search).get('view') === 'history'
-  const storedConfig = loadPracticeConfig()
-  const [config, setConfig] = useState<PracticeSessionConfig>(storedConfig ?? defaultConfig)
-  const [view, setView] = useState<PracticeView>(queryWantsHistory ? 'history' : storedConfig ? 'practice' : 'setup')
-  const parsed = useMemo(() => parsePracticeItems(config.rawText, config.progressMode), [config])
-  const [currentIndex, setCurrentIndex] = useState(0)
-  const [results, setResults] = useState<Array<PracticeItemResult | null>>(() => Array(parsed.items.length).fill(null))
-  const [latestScore, setLatestScore] = useState<PracticeScore | null>(null)
-  const [message, setMessage] = useState('')
-  const [strokeCount, setStrokeCount] = useState(0)
-  const [completedRecord, setCompletedRecord] = useState<PracticeSessionRecord | null>(null)
-  const canvasRef = useRef<PracticeCanvasHandle>(null)
-  const historicRecordsRef = useRef(loadPracticeRecords())
+  const search = new URLSearchParams(window.location.search)
+  const storedConfig = loadPracticeConfig() ?? defaultConfig
+  const initialParsed = parsePracticeItems(storedConfig.rawText)
+  const wantsHistory = search.get('view') === 'history'
+  const wantsStart = search.get('start') === '1' && initialParsed.items.length > 0
+  const [config, setConfig] = useState<PracticeSessionConfig>(storedConfig)
+  const [view, setView] = useState<PracticeView>(wantsHistory ? 'history' : wantsStart ? 'practice' : 'setup')
+  const [returnFromHistory, setReturnFromHistory] = useState<PracticeView>('setup')
+  const [session, setSession] = useState<PracticeSessionState>(() => createPracticeSessionState(initialParsed.items))
+  const [phase, setPhase] = useState<PracticePhase>('writing')
+  const [visualCompletedCount, setVisualCompletedCount] = useState(0)
+  const [failedStroke, setFailedStroke] = useState<PracticePoint[] | null>(null)
+  const [guideReplayKey, setGuideReplayKey] = useState(0)
+  const [statusMessage, setStatusMessage] = useState('시작점에서 화살표 방향으로 따라 써 보세요.')
+  const [completedRecord, setCompletedRecord] = useState<PracticeSessionRecordV2 | null>(null)
+  const [soundEnabled, setSoundEnabled] = useState(() => loadSoundEnabled())
+  const [canvasSide, setCanvasSide] = useState(() => calculatePracticeLayout({ width: window.innerWidth, height: window.innerHeight }).canvasSide)
+  const audioRef = useRef<AudioFeedbackController | null>(null)
+  const timerRef = useRef<number | null>(null)
+
+  const parsed = useMemo(() => parsePracticeItems(config.rawText), [config.rawText])
+  const currentItem = session.items[session.currentItemIndex] ?? ''
+  const generatedCharacter = useMemo(() => generateCharacterStrokes(currentItem), [currentItem])
 
   useEffect(() => {
-    try {
-      const raw = sessionStorage.getItem(PRACTICE_PROGRESS_KEY)
-      if (!raw || view !== 'practice') return
-      const saved = JSON.parse(raw) as SavedProgress
-      if (saved.config.rawText !== config.rawText || saved.config.progressMode !== config.progressMode) return
-      setCurrentIndex(Math.min(saved.currentIndex, Math.max(0, parsed.items.length - 1)))
-      setResults(Array.from({ length: parsed.items.length }, (_, index) => saved.results[index] ?? null))
-    } catch {
-      sessionStorage.removeItem(PRACTICE_PROGRESS_KEY)
-    }
+    audioRef.current = createAudioFeedbackController(!soundEnabled)
+    return () => audioRef.current?.dispose()
   }, [])
+
+  useEffect(() => {
+    audioRef.current?.setMuted(!soundEnabled)
+    saveSoundEnabled(soundEnabled)
+  }, [soundEnabled])
 
   useEffect(() => {
     if (view !== 'practice') return
-    const progress: SavedProgress = { config, currentIndex, results }
-    sessionStorage.setItem(PRACTICE_PROGRESS_KEY, JSON.stringify(progress))
-  }, [config, currentIndex, results, view])
-
-  useEffect(() => {
-    const warnBeforeLeave = (event: BeforeUnloadEvent) => {
-      if (view !== 'practice') return
-      event.preventDefault()
-      event.returnValue = ''
+    document.body.classList.add('practice-session-active')
+    const updateViewport = () => {
+      const height = window.visualViewport?.height ?? window.innerHeight
+      document.documentElement.style.setProperty('--practice-vh', `${height}px`)
+      setCanvasSide(calculatePracticeLayout({ width: window.innerWidth, height }).canvasSide)
     }
-    window.addEventListener('beforeunload', warnBeforeLeave)
-    return () => window.removeEventListener('beforeunload', warnBeforeLeave)
+    updateViewport()
+    window.addEventListener('resize', updateViewport)
+    window.addEventListener('orientationchange', updateViewport)
+    window.visualViewport?.addEventListener('resize', updateViewport)
+    return () => {
+      document.body.classList.remove('practice-session-active')
+      document.documentElement.style.removeProperty('--practice-vh')
+      window.removeEventListener('resize', updateViewport)
+      window.removeEventListener('orientationchange', updateViewport)
+      window.visualViewport?.removeEventListener('resize', updateViewport)
+    }
   }, [view])
 
-  const currentItem = parsed.items[currentIndex] ?? ''
-  const currentResult = results[currentIndex]
-  const isLast = currentIndex === parsed.items.length - 1
-  const todayBestBeforeSession = useMemo(() => {
-    const today = getTodayKey()
-    const best = new Map<string, number>()
-    historicRecordsRef.current.filter((record) => record.date === today).forEach((record) => record.items.forEach((item) => {
-      best.set(item.item, Math.max(best.get(item.item) ?? 0, item.bestScore))
-    }))
-    return best
+  useEffect(() => () => {
+    if (timerRef.current !== null) window.clearTimeout(timerRef.current)
   }, [])
 
-  const beginPractice = (nextConfig = config) => {
-    const nextParsed = parsePracticeItems(nextConfig.rawText, nextConfig.progressMode)
-    if (!nextParsed.items.length) return
+  useEffect(() => {
+    setVisualCompletedCount(session.completedStrokeCount)
+    setFailedStroke(null)
+    setPhase('writing')
+    setGuideReplayKey((value) => value + 1)
+  }, [session.currentItemIndex])
+
+  const beginPractice = (rawItems: string[]) => {
+    if (!rawItems.length) return
+    const nextConfig = { rawText: rawItems.join('\n') }
     savePracticeConfig(nextConfig)
-    sessionStorage.removeItem(PRACTICE_PROGRESS_KEY)
     setConfig(nextConfig)
-    setResults(Array(nextParsed.items.length).fill(null))
-    setCurrentIndex(0)
-    setLatestScore(null)
-    setMessage('')
+    setSession(createPracticeSessionState(rawItems))
+    setPhase('writing')
+    setVisualCompletedCount(0)
+    setFailedStroke(null)
     setCompletedRecord(null)
+    setStatusMessage('시작점에서 화살표 방향으로 따라 써 보세요.')
+    setGuideReplayKey((value) => value + 1)
     setView('practice')
     window.history.replaceState(null, '', '/practice/')
   }
 
-  const handleExit = () => {
-    if (view === 'practice' && !window.confirm('현재 진행 상태가 사라질 수 있어요. 연습을 나갈까요?')) return
-    window.location.href = '/'
-  }
-
-  const handleScore = () => {
-    const strokes = canvasRef.current?.getStrokes() ?? []
-    const score = scorePractice(currentItem, strokes)
-    if (!score) {
-      setMessage('먼저 글자를 써주세요.')
-      return
-    }
-    const previous = results[currentIndex]
-    const nextResult: PracticeItemResult = previous
-      ? {
-          ...previous,
-          attempts: previous.attempts + 1,
-          bestScore: Math.max(previous.bestScore, score.total),
-          bestBreakdown: score.total >= previous.bestScore ? score : previous.bestBreakdown,
-        }
-      : {
-          item: currentItem,
-          firstScore: score.total,
-          bestScore: score.total,
-          attempts: 1,
-          bestBreakdown: score,
-        }
-    setResults((current) => current.map((item, index) => index === currentIndex ? nextResult : item))
-    setLatestScore(score)
-    setMessage('')
-  }
-
-  const handleRetry = () => {
-    canvasRef.current?.clear()
-    setLatestScore(null)
-    setMessage('')
-  }
-
-  const finishSession = (finalResults: Array<PracticeItemResult | null>) => {
-    const validResults = finalResults.filter((item): item is PracticeItemResult => Boolean(item))
-    const record = createSessionRecord(validResults)
+  const finishSession = (completedState: PracticeSessionState) => {
+    const record = createSessionRecord(completedState)
     savePracticeSession(record)
-    sessionStorage.removeItem(PRACTICE_PROGRESS_KEY)
     setCompletedRecord(record)
+    audioRef.current?.play('session-complete')
     setView('complete')
+    window.history.replaceState(null, '', '/practice/')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const handleNext = () => {
-    if (!currentResult) return
-    if (isLast) {
-      finishSession(results)
+  const handleStrokeEnd = (points: PracticePoint[]) => {
+    if (phase !== 'writing' || !generatedCharacter) return
+    const referenceStroke = generatedCharacter.strokes[session.currentStrokeIndex]
+    if (!referenceStroke) return
+    const validation = validateStroke(points, referenceStroke, session.currentStrokeRetryCount)
+    if (!validation.accepted) {
+      const nextState = applyStrokeOutcome(session, false, generatedCharacter.strokes.length)
+      setSession(nextState)
+      setFailedStroke(points)
+      setPhase('retry')
+      setStatusMessage('선을 따라 다시 써볼까요?')
+      audioRef.current?.play('retry')
+      if (timerRef.current !== null) window.clearTimeout(timerRef.current)
+      timerRef.current = window.setTimeout(() => {
+        setFailedStroke(null)
+        setPhase('writing')
+        setGuideReplayKey((value) => value + 1)
+      }, 320)
       return
     }
-    setCurrentIndex((index) => index + 1)
-    setLatestScore(null)
-    setMessage('')
-    setStrokeCount(0)
-    window.setTimeout(() => canvasRef.current?.clear(), 0)
+
+    const isLastStroke = session.currentStrokeIndex >= generatedCharacter.strokes.length - 1
+    const nextState = applyStrokeOutcome(session, true, generatedCharacter.strokes.length)
+    setVisualCompletedCount(session.completedStrokeCount + 1)
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate?.(18)
+
+    if (!isLastStroke) {
+      setPhase('stroke-success')
+      setStatusMessage('좋아요! 다음 획을 따라 써 보세요.')
+      audioRef.current?.play('stroke-success')
+      timerRef.current = window.setTimeout(() => {
+        setSession(nextState)
+        setPhase('writing')
+        setGuideReplayKey((value) => value + 1)
+      }, 360)
+      return
+    }
+
+    setPhase('character-complete')
+    setStatusMessage('참 잘했어요!')
+    audioRef.current?.play('character-complete')
+    timerRef.current = window.setTimeout(() => {
+      setSession(nextState)
+      if (nextState.completed) {
+        finishSession(nextState)
+      } else {
+        setPhase('writing')
+        setStatusMessage('시작점에서 화살표 방향으로 따라 써 보세요.')
+        setGuideReplayKey((value) => value + 1)
+      }
+    }, 860)
   }
 
-  const weakItems = completedRecord
-    ? [...completedRecord.items].sort((a, b) => a.bestScore - b.bestScore).slice(0, 3).map((item) => item.item)
-    : []
-
-  const handleRetryWeak = () => {
-    const rawText = weakItems.join('\n')
-    beginPractice({ ...config, rawText, progressMode: 'line' })
+  const handleHistory = () => {
+    setReturnFromHistory(view)
+    setView('history')
   }
 
-  const handleWorksheet = () => {
-    const rawWords = weakItems.join('\n') || completedRecord?.items.map((item) => item.item).join('\n') || ''
-    sessionStorage.setItem(WORKSHEET_PREFILL_KEY, JSON.stringify({ rawWords, practiceMode: 'trace' }))
+  const handleWorksheet = (record: PracticeSessionRecordV2, scope: 'all' | 'retried') => {
+    const selected = scope === 'retried' && record.retriedItems.length ? record.retriedItems : record.items
+    sessionStorage.setItem(WORKSHEET_PREFILL_KEY, JSON.stringify({ rawWords: selected.join('\n'), practiceMode: 'trace' }))
     window.location.href = '/'
   }
 
   if (view === 'history') {
     return (
       <>
-        <Seo title="화면 연습 기록" description="현재 브라우저에 저장된 최근 한글 화면 연습 점수와 연속 연습일을 확인하세요." path="/practice" noIndex />
-        <HistoryView onBack={() => completedRecord ? setView('complete') : storedConfig ? setView('practice') : setView('setup')} />
+        <Seo title="획순 연습 기록" description="현재 브라우저에 저장된 한글 획순 연습 완료와 재시도 기록을 확인하세요." path="/practice" noIndex />
+        <HistoryView onBack={() => setView(returnFromHistory)} />
       </>
     )
   }
@@ -502,88 +400,99 @@ export default function PracticePage() {
   if (view === 'setup') {
     return (
       <>
-        <Seo title="화면 한글 따라쓰기 연습" description="손가락, 펜, 마우스로 한글을 따라 쓰고 브라우저에서 참고 점수를 확인하세요." path="/practice" />
-        <SetupView config={config} onChange={setConfig} onStart={() => beginPractice(config)} />
+        <Seo title="아이용 한글 획순 따라쓰기" description="올바른 한글 획순을 한 획씩 보고 손가락, 펜 또는 마우스로 따라 써 보세요." path="/practice" />
+        <SetupView config={config} onChange={setConfig} onStart={() => beginPractice(parsed.items)} />
       </>
     )
   }
 
   if (view === 'complete' && completedRecord) {
+    const records = loadPracticeRecords()
     return (
       <>
-        <Seo title="화면 연습 완료" description="오늘의 화면 한글 따라쓰기 연습 결과를 확인하세요." path="/practice" noIndex />
+        <Seo title="획순 연습 완료" description="오늘 완성한 한글과 다시 써본 글자를 확인하세요." path="/practice" noIndex />
         <CompleteView
           record={completedRecord}
-          onRetryWeak={handleRetryWeak}
-          onWorksheet={handleWorksheet}
-          onRestart={() => {
-            sessionStorage.removeItem(PRACTICE_PROGRESS_KEY)
+          streak={calculateStreak(records)}
+          onRepeatAll={() => beginPractice(completedRecord.items)}
+          onRepeatRetried={() => beginPractice(completedRecord.retriedItems)}
+          onWorksheet={(scope) => handleWorksheet(completedRecord, scope)}
+          onNewPractice={() => {
             setConfig(defaultConfig)
             setView('setup')
-            window.history.replaceState(null, '', '/practice/')
           }}
-          onHistory={() => setView('history')}
+          onHistory={handleHistory}
         />
       </>
     )
   }
 
-  const progress = parsed.items.length ? ((currentIndex + 1) / parsed.items.length) * 100 : 0
-  const isTodayBest = Boolean(currentResult && currentResult.bestScore >= (todayBestBeforeSession.get(currentItem) ?? 0))
+  if (!generatedCharacter) {
+    return (
+      <>
+        <Seo title="한글 획순 따라쓰기" description="한글 획순 연습" path="/practice" noIndex />
+        <section className="practice-setup-page"><div className="practice-setup-card"><h1>연습할 수 있는 한글이 없어요.</h1><button type="button" onClick={() => setView('setup')}>새로 입력하기</button></div></section>
+      </>
+    )
+  }
 
   return (
     <>
-      <Seo title={`${currentItem || '한글'} 화면 따라쓰기 연습`} description="화면에서 한글을 따라 쓰고 규칙 기반 참고 점수를 확인하세요." path="/practice" noIndex />
-      <section className="practice-session-page" aria-label="화면 한글 따라쓰기 연습">
-        <header className="practice-session-header">
-          <button type="button" className="exit-practice-button" onClick={handleExit}>나가기</button>
-          <div className="practice-progress-info">
-            <strong>{currentIndex + 1} / {parsed.items.length}</strong>
-            <div className="practice-progress-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress)}>
-              <span style={{ width: `${progress}%` }} />
-            </div>
-          </div>
-          <button type="button" className="history-shortcut" onClick={() => setView('history')}>기록</button>
-        </header>
+      <Seo title={`${currentItem} 획순 따라쓰기`} description="현재 획을 따라 쓰고 손을 떼면 자동으로 다음 획으로 이동합니다." path="/practice" noIndex />
+      <section className="practice-session-shell" aria-label="한글 획순 따라쓰기 집중 모드">
+        <PracticeSessionHeader
+          character={currentItem}
+          currentIndex={session.currentItemIndex}
+          totalItems={session.items.length}
+          soundEnabled={soundEnabled}
+          onExit={() => {
+            if (timerRef.current !== null) window.clearTimeout(timerRef.current)
+            setView('setup')
+            window.history.replaceState(null, '', '/practice/')
+          }}
+          onToggleSound={() => setSoundEnabled((enabled) => !enabled)}
+          onHistory={handleHistory}
+        />
 
-        <div className="practice-workspace">
-          <div className="practice-item-heading">
-            <span>{config.displayMode === 'independent' ? '위 글자를 보고 써 보세요' : '기준 글자를 천천히 따라 써 보세요'}</span>
-            <h1>{currentItem}</h1>
+        <main className="canvas-stage">
+          <div className="stroke-status-line">
+            <strong>{currentItem}</strong>
+            <span aria-label={`현재 ${session.currentStrokeIndex + 1}번째 획, 전체 ${generatedCharacter.strokes.length}획`}>
+              {session.currentStrokeIndex + 1} / {generatedCharacter.strokes.length}획
+            </span>
           </div>
-
-          <div className="canvas-safe-zone">
+          <div className={`stroke-canvas-frame phase-${phase}`} style={{ width: `${canvasSide}px`, height: `${canvasSide}px` }}>
             <PracticeCanvas
-              key={`${currentIndex}-${currentItem}`}
-              ref={canvasRef}
-              item={currentItem}
-              displayMode={config.displayMode}
-              onStrokeChange={(count) => {
-                setStrokeCount(count)
-                if (latestScore) setLatestScore(null)
-              }}
+              character={generatedCharacter}
+              currentStrokeIndex={session.currentStrokeIndex}
+              completedStrokeCount={visualCompletedCount}
+              retryCount={session.currentStrokeRetryCount}
+              guideReplayKey={guideReplayKey}
+              phase={phase}
+              failedStroke={failedStroke}
+              onInteractionStart={() => { void audioRef.current?.unlock() }}
+              onStrokeEnd={handleStrokeEnd}
             />
+            {phase === 'character-complete' && <div className="character-praise" aria-hidden="true">참 잘했어요!</div>}
           </div>
+          <p className={`practice-live-message message-${phase}`} aria-live="polite">{statusMessage}</p>
+        </main>
 
-          <div className="practice-canvas-actions" aria-label="필기 도구">
-            <button type="button" onClick={() => canvasRef.current?.undo()} disabled={!strokeCount}>한 획 되돌리기</button>
-            <button type="button" onClick={() => { canvasRef.current?.clear(); setLatestScore(null); setMessage('') }} disabled={!strokeCount}>모두 지우기</button>
-            <button type="button" className="score-button" onClick={handleScore}>채점하기</button>
-          </div>
-          {message && <p className="practice-message" role="alert">{message}</p>}
-
-          {latestScore && currentResult && (
-            <ScoreCard
-              item={currentItem}
-              result={currentResult}
-              latestScore={latestScore}
-              isTodayBest={isTodayBest}
-              onRetry={handleRetry}
-              onNext={handleNext}
-              isLast={isLast}
-            />
-          )}
-        </div>
+        <PracticeSessionControls
+          onRestartCharacter={() => {
+            if (timerRef.current !== null) window.clearTimeout(timerRef.current)
+            setSession((current) => restartCurrentCharacter(current))
+            setVisualCompletedCount(0)
+            setFailedStroke(null)
+            setPhase('writing')
+            setStatusMessage('첫 획부터 다시 따라 써 보세요.')
+            setGuideReplayKey((value) => value + 1)
+          }}
+          onReplayGuide={() => {
+            setGuideReplayKey((value) => value + 1)
+            setStatusMessage('빛나는 점과 화살표를 따라 써 보세요.')
+          }}
+        />
       </section>
     </>
   )

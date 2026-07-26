@@ -7,7 +7,7 @@
     "dev": "vite --configLoader runner",
     "build": "tsc -b && vite build --configLoader runner",
     "preview": "vite preview --configLoader runner",
-    "test": "node -e \"require('fs').mkdirSync('.test-dist',{recursive:true});require('fs').writeFileSync('.test-dist/package.json','{\\\"type\\\":\\\"commonjs\\\"}')\" && tsc src/practice/types.ts src/practice/parser.ts src/practice/feedback.ts src/practice/scoring.ts src/practice/storage.ts src/practice/session.ts --target ES2022 --module commonjs --moduleResolution node --lib ES2022,DOM,DOM.Iterable,ES2022.Intl --outDir .test-dist --strict --skipLibCheck && node --test tests/practice-utils.test.cjs"
+    "test": "node -e \"require('fs').rmSync('.test-dist',{recursive:true,force:true});require('fs').mkdirSync('.test-dist',{recursive:true});require('fs').writeFileSync('.test-dist/package.json','{\\\"type\\\":\\\"commonjs\\\"}')\" && tsc -p tsconfig.test.json && node --test tests/*.test.cjs"
   },
   "dependencies": {
     "html2canvas": "^1.4.1",

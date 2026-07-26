@@ -1,60 +1,153 @@
-export type PracticeDisplayMode = 'faint' | 'dotted' | 'independent'
-export type PracticeProgressMode = 'character' | 'line'
-
-export interface PracticeSessionConfig {
-  rawText: string
-  displayMode: PracticeDisplayMode
-  progressMode: PracticeProgressMode
-}
-
 export interface PracticePoint {
   x: number
   y: number
-  pressure: number
-  time: number
+  pressure?: number
+  time?: number
 }
 
-export interface PracticeStroke {
+export type StrokePathKind = 'line' | 'polyline' | 'curve' | 'closed-curve'
+
+export interface StrokeDirection {
+  dx: number
+  dy: number
+}
+
+export interface StrokePath {
+  id: string
   points: PracticePoint[]
+  start: PracticePoint
+  end: PracticePoint
+  direction: StrokeDirection
+  pathKind: StrokePathKind
+  closed: boolean
+  thickness: number
+  tolerance: number
+  curved: boolean
+  guidePoints: PracticePoint[]
 }
 
-export interface PracticeScoreMetrics {
-  precision: number
-  coverage: number
-  f1: number
-  centerOffsetX: number
-  centerOffsetY: number
-  sizeRatio: number
-  userAreaRatio: number
-  jitter: number
-  strokeCount: number
-  pointCount: number
+export interface GeneratedCharacter {
+  character: string
+  strokes: StrokePath[]
+  kind: 'syllable' | 'jamo'
+  initial?: string
+  medial?: string
+  final?: string
 }
 
-export interface PracticeScore {
-  total: number
-  shape: number
-  sizePosition: number
-  completion: number
-  stability: number
-  metrics: PracticeScoreMetrics
-  feedback: string[]
+export interface HangulDecomposition {
+  kind: 'syllable' | 'jamo' | 'unsupported'
+  character: string
+  initial?: string
+  medial?: string
+  final?: string
 }
 
-export interface PracticeItemResult {
-  item: string
-  firstScore: number
-  bestScore: number
-  attempts: number
-  bestBreakdown: PracticeScore
+export interface PracticeParseResult {
+  items: string[]
+  excluded: string[]
+  truncated: boolean
+  totalBeforeLimit: number
+  estimatedMinutes: number
 }
 
-export interface PracticeSessionRecord {
+export interface PracticeSessionConfig {
+  rawText: string
+}
+
+export interface StrokeValidationConfig {
+  sampleCount: number
+  baseTolerance: number
+  startToleranceMultiplier: number
+  endToleranceMultiplier: number
+  minimumLengthRatio: number
+  maximumLengthRatio: number
+  minimumNearRatio: number
+  minimumCoverageRatio: number
+  minimumDirectionCosine: number
+  maximumBoundingArea: number
+}
+
+export type StrokeFailureReason =
+  | 'empty'
+  | 'too-short'
+  | 'reverse-direction'
+  | 'wrong-location'
+  | 'off-path'
+  | 'scribble'
+
+export interface StrokeValidationMetrics {
+  startDistance: number
+  endDistance: number
+  directionCosine: number
+  nearRatio: number
+  coverageRatio: number
+  lengthRatio: number
+  boundingArea: number
+}
+
+export interface StrokeValidationResult {
+  accepted: boolean
+  reason?: StrokeFailureReason
+  metrics: StrokeValidationMetrics
+}
+
+export interface PracticeSessionState {
+  items: string[]
+  currentItemIndex: number
+  currentStrokeIndex: number
+  completedStrokeCount: number
+  itemRetryCounts: Record<string, number>
+  currentStrokeRetryCount: number
+  totalRetryCount: number
+  startedAt: string
+  completedAt?: string
+  completed: boolean
+}
+
+export interface PracticeSessionRecordV2 {
+  version: 2
   id: string
   date: string
-  createdAt: string
-  items: PracticeItemResult[]
-  average: number
-  best: number
-  totalAttempts: number
+  startedAt: string
+  completedAt: string
+  durationMs: number
+  items: string[]
+  completedCount: number
+  retryCounts: Record<string, number>
+  totalRetries: number
+  retriedItems: string[]
+  streakAtCompletion: number
+  completed: boolean
+}
+
+export interface LegacyPracticeItemResult {
+  item?: unknown
+  attempts?: unknown
+}
+
+export interface LegacyPracticeSessionRecordV1 {
+  id?: unknown
+  date?: unknown
+  createdAt?: unknown
+  items?: unknown
+  totalAttempts?: unknown
+}
+
+export type AudioFeedbackKind = 'stroke-success' | 'retry' | 'character-complete' | 'session-complete'
+
+export interface AudioTone {
+  frequency: number
+  start: number
+  duration: number
+  gain: number
+  type?: OscillatorType
+}
+
+export interface AudioFeedbackController {
+  unlock: () => Promise<boolean>
+  play: (kind: AudioFeedbackKind) => void
+  setMuted: (muted: boolean) => void
+  isMuted: () => boolean
+  dispose: () => void
 }
