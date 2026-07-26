@@ -28,7 +28,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Run tests
-        run: npm test
+        shell: bash
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee /tmp/npm-test.log
       - name: Build production site
         run: npm run build
       - name: Smoke-test static routes
@@ -62,6 +65,7 @@ jobs:
           mkdir -p artifacts/practice-browser-debug
           cp -r /tmp/practice-browser/. artifacts/practice-browser-debug/ 2>/dev/null || true
           cp /tmp/hangul-browser-http.log artifacts/practice-browser-debug/ 2>/dev/null || true
+          cp /tmp/npm-test.log artifacts/practice-browser-debug/ 2>/dev/null || true
       - name: Upload canonical stroke screenshots and diagnostics
         if: always()
         uses: actions/upload-artifact@v4
