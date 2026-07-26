@@ -248,8 +248,16 @@ test('대표 글자는 목표 영역을 충분히 사용하고 받침·원형·�
     }
     if (generated.final) {
       assert.ok(quality.upperToFinalGap >= 0.018, `${sample} 위 자모와 받침 간격 부족: ${quality.upperToFinalGap}`)
-      assert.ok(quality.finalToInitialWidth >= 0.42 && quality.finalToInitialWidth <= 1.35, `${sample} 받침 폭 비율 오류`)
-      assert.ok(quality.finalToInitialHeight >= 0.38 && quality.finalToInitialHeight <= 1.25, `${sample} 받침 높이 비율 오류`)
+      const minFinalWidth = generated.finalKind === 'cluster' ? 0.55 : 0.28
+      const maxFinalWidth = generated.finalKind === 'cluster' ? 1.08 : 0.95
+      assert.ok(
+        quality.finalToUpperWidth >= minFinalWidth && quality.finalToUpperWidth <= maxFinalWidth,
+        `${sample} 받침/상단 폭 비율 오류: ${quality.finalToUpperWidth}`,
+      )
+      assert.ok(
+        quality.finalToUpperHeight >= 0.25 && quality.finalToUpperHeight <= 0.9,
+        `${sample} 받침/상단 높이 비율 오류: ${quality.finalToUpperHeight}`,
+      )
     }
   }
 })
