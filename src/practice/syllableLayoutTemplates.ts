@@ -66,7 +66,7 @@ const BASE_TEMPLATES: Record<SyllableLayoutType, SyllableLayoutTemplate> = {
     type: 'compound-no-final',
     initial: { x: 0.13, y: 0.09, width: 0.32, height: 0.36 },
     medial: [
-      { x: 0.13, y: 0.44, width: 0.7, height: 0.27 },
+      { x: 0.13, y: 0.38, width: 0.7, height: 0.25 },
       { x: 0.48, y: 0.08, width: 0.3, height: 0.5 },
     ],
     minimumGap: 0.035,
