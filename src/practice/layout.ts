@@ -36,7 +36,7 @@ export function calculatePracticeLayout(viewport: PracticeViewport): PracticeLay
   const landscape = viewportWidth >= 700 && viewportWidth > viewportHeight * 1.15
 
   if (landscape) {
-    const compact = viewportWidth < 900 || viewportHeight < 560
+    const compact = viewportWidth < 1000
     const mode: PracticeLayoutMode = compact ? 'phone-landscape' : 'tablet-landscape'
     const headerHeight = compact ? 0 : 58
     const outerMargin = compact ? 8 : viewportWidth >= 1200 ? 16 : 12
