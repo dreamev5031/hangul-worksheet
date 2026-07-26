@@ -21,7 +21,7 @@ export const JAMO_OPTICAL_ADJUSTMENTS: Record<string, JamoOpticalRule> = {
   'ㅁ': {
     roles: {
       initial: { scaleX: 0.97, scaleY: 0.97 },
-      final: { scaleX: 1.16, scaleY: 1.12, translateY: -0.008, strokeWidthScale: 1.04 },
+      final: { scaleX: 1.1, scaleY: 1.08, translateY: -0.006, strokeWidthScale: 1.03 },
     },
   },
   'ㅂ': {
