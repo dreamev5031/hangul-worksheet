@@ -19,23 +19,37 @@ export function transformPoint(point: PracticePoint, transform: RectTransform): 
   }
 }
 
+function getStrokeTransform(stroke: StrokePath, transform: RectTransform): RectTransform {
+  if (!stroke.preserveAspect) return transform
+  const size = Math.min(transform.width, transform.height)
+  return {
+    x: transform.x + (transform.width - size) / 2,
+    y: transform.y + (transform.height - size) / 2,
+    width: size,
+    height: size,
+  }
+}
+
 export function transformStroke(stroke: StrokePath, transform: RectTransform, idPrefix = ''): StrokePath {
-  const points = stroke.points.map((point) => transformPoint(point, transform))
+  const effectiveTransform = getStrokeTransform(stroke, transform)
+  const points = stroke.points.map((point) => transformPoint(point, effectiveTransform))
   const directionTarget = stroke.closed && points.length > 2 ? points[Math.max(1, Math.floor(points.length * 0.2))] : points[points.length - 1]
   const dx = directionTarget.x - points[0].x
   const dy = directionTarget.y - points[0].y
   const magnitude = Math.hypot(dx, dy) || 1
-  const guidePoints = stroke.guidePoints.map((point) => transformPoint(point, transform))
+  const guidePoints = stroke.guidePoints.map((point) => transformPoint(point, effectiveTransform))
+  const waypoints = stroke.waypoints.map((point) => transformPoint(point, effectiveTransform))
   return {
     ...stroke,
     id: `${idPrefix}${stroke.id}`,
     points,
     guidePoints,
+    waypoints,
     start: points[0],
     end: points[points.length - 1],
     direction: { dx: dx / magnitude, dy: dy / magnitude },
-    thickness: stroke.thickness * Math.min(transform.width, transform.height),
-    tolerance: stroke.tolerance * Math.max(transform.width, transform.height),
+    thickness: stroke.thickness * Math.min(effectiveTransform.width, effectiveTransform.height),
+    tolerance: stroke.tolerance * Math.max(effectiveTransform.width, effectiveTransform.height),
   }
 }
 
