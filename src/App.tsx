@@ -6,6 +6,7 @@ import ContactPage from './pages/Contact'
 import FaqPage from './pages/Faq'
 import GuidePage from './pages/Guide'
 import NotFoundPage from './pages/NotFound'
+import PracticePage from './pages/PracticePage'
 import PrivacyPage from './pages/Privacy'
 import TermsPage from './pages/Terms'
 
@@ -19,6 +20,7 @@ export default function App() {
 
   const pages: Record<string, ReactNode> = {
     '/': <HomePage />,
+    '/practice': <PracticePage />,
     '/about': <AboutPage />,
     '/privacy': <PrivacyPage />,
     '/terms': <TermsPage />,

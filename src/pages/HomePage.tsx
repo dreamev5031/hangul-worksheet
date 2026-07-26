@@ -1,7 +1,11 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import Seo from '../components/Seo'
+import PracticePreview from '../components/PracticePreview'
 import WorksheetControls from '../components/WorksheetControls'
+import type { CreationMode } from '../components/WorksheetControls'
 import WorksheetPreview from '../components/WorksheetPreview'
+import type { PracticeSessionConfig } from '../practice/types'
+import { savePracticeConfig, WORKSHEET_PREFILL_KEY } from '../practice/session'
 import type { WorksheetSettings } from '../types'
 import { downloadWorksheetPdf } from '../utils/downloadPdf'
 import { parseWords } from '../utils/parseWords'
@@ -17,11 +21,40 @@ const initialSettings: WorksheetSettings = {
   includePraise: true,
 }
 
+const initialPracticeConfig: PracticeSessionConfig = {
+  rawText: initialSettings.rawWords,
+  displayMode: 'faint',
+  progressMode: 'character',
+}
+
 export default function HomePage() {
   const [settings, setSettings] = useState(initialSettings)
+  const [creationMode, setCreationMode] = useState<CreationMode>('print')
+  const [practiceConfig, setPracticeConfig] = useState(initialPracticeConfig)
   const [isDownloading, setIsDownloading] = useState(false)
   const previewRef = useRef<HTMLDivElement>(null)
+  const toolRef = useRef<HTMLElement>(null)
   const words = useMemo(() => parseWords(settings.rawWords), [settings.rawWords])
+
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(WORKSHEET_PREFILL_KEY)
+      if (!raw) return
+      const prefill = JSON.parse(raw) as { rawWords?: string; practiceMode?: WorksheetSettings['practiceMode'] }
+      if (!prefill.rawWords) return
+      setSettings((current) => ({
+        ...current,
+        rawWords: prefill.rawWords ?? current.rawWords,
+        practiceMode: prefill.practiceMode ?? 'trace',
+      }))
+      setPracticeConfig((current) => ({ ...current, rawText: prefill.rawWords ?? current.rawText }))
+      setCreationMode('print')
+      sessionStorage.removeItem(WORKSHEET_PREFILL_KEY)
+      window.setTimeout(() => toolRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80)
+    } catch {
+      sessionStorage.removeItem(WORKSHEET_PREFILL_KEY)
+    }
+  }, [])
 
   const handleDownload = async () => {
     if (!previewRef.current || isDownloading) return
@@ -33,45 +66,64 @@ export default function HomePage() {
     }
   }
 
+  const handleStartPractice = () => {
+    const config = { ...practiceConfig, rawText: settings.rawWords }
+    savePracticeConfig(config)
+    window.location.href = '/practice/'
+  }
+
   return (
     <>
       <Seo
-        title="자유 입력 맞춤 한글 학습지 만들기"
-        description="자음, 모음, 한 글자, 단어, 아이 이름과 짧은 문장을 자유롭게 입력해 A4 한글 학습지를 만들고 PDF로 저장하거나 인쇄하세요."
+        title="자유 입력 맞춤 한글 학습지와 화면 연습"
+        description="자음, 모음, 한 글자, 단어, 아이 이름과 짧은 문장을 자유롭게 입력해 A4 한글 학습지를 만들거나 화면에서 바로 따라 쓰고 점수를 확인하세요."
         path="/"
       />
 
       <section className="hero no-print">
         <p className="eyebrow">부모를 위한 맞춤 한글 학습 도구</p>
-        <h1>원하는 글자로<br /><em>맞춤 학습지</em>를 만들어요.</h1>
+        <h1>원하는 글자로<br /><em>맞춤 학습지</em>를 만들고, 화면에서 바로 연습해요.</h1>
         <p>
           자음, 모음, 한 글자부터 좋아하는 단어와 아이 이름까지<br className="mobile-break" />
-          자유롭게 입력하고 바로 인쇄할 수 있어요.
+          자유롭게 입력하고 인쇄하거나 손가락으로 따라 써 보세요.
         </p>
         <div className="privacy-note" role="note">
-          <strong>개인정보를 저장하지 않아요.</strong>
-          <span>입력한 이름과 단어는 서버로 전송되지 않으며, 현재 브라우저에서 학습지를 만드는 데만 사용됩니다.</span>
+          <strong>입력 내용은 서버로 보내지 않아요.</strong>
+          <span>화면 연습 기록은 현재 기기의 브라우저에만 저장되며 기록 메뉴에서 언제든지 지울 수 있어요.</span>
         </div>
       </section>
 
-      <section className="tool-section" aria-label="한글 학습지 만들기 도구">
+      <section ref={toolRef} className="tool-section" aria-label="한글 연습 내용 만들기 도구">
         <div className="app-layout">
           <WorksheetControls
             settings={settings}
             onChange={setSettings}
+            creationMode={creationMode}
+            onCreationModeChange={setCreationMode}
+            practiceConfig={{ ...practiceConfig, rawText: settings.rawWords }}
+            onPracticeConfigChange={setPracticeConfig}
+            onStartPractice={handleStartPractice}
             onDownload={handleDownload}
             onPrint={() => window.print()}
             isDownloading={isDownloading}
           />
-          <WorksheetPreview ref={previewRef} settings={settings} words={words} />
+          {creationMode === 'print' ? (
+            <WorksheetPreview ref={previewRef} settings={settings} words={words} />
+          ) : (
+            <PracticePreview
+              rawText={settings.rawWords}
+              displayMode={practiceConfig.displayMode}
+              progressMode={practiceConfig.progressMode}
+            />
+          )}
         </div>
       </section>
 
       <article className="home-content no-print" aria-labelledby="home-guide-title">
         <header className="content-intro">
           <p className="eyebrow">부모님을 위한 활용 안내</p>
-          <h2 id="home-guide-title">짧고 즐거운 한글 쓰기 시간을 만들어보세요</h2>
-          <p>학습지는 많이 쓰는 것보다 아이가 집중할 수 있는 만큼 반복하는 것이 중요합니다. 아래 안내를 참고해 아이의 속도에 맞춰 활용해 주세요.</p>
+          <h2 id="home-guide-title">화면에서 약한 글자를 찾고, 인쇄 학습지로 이어가세요</h2>
+          <p>화면 연습 점수는 아이의 쓰기 활동을 돕는 참고 값입니다. 낮은 점수 글자는 세션이 끝난 뒤 기존 A4 학습지에 자동으로 넣어 다시 연습할 수 있습니다.</p>
         </header>
 
         <div className="info-grid">
@@ -82,31 +134,32 @@ export default function HomePage() {
           </section>
           <section className="info-card">
             <span className="info-number">02</span>
-            <h3>어떻게 사용하나요?</h3>
-            <p>연습할 자음, 모음, 글자나 단어를 입력하고 글자 크기, 연습 방식, 줄 수를 고르세요. 따라쓰기와 혼자쓰기의 비율을 조절하면 아이에게 맞는 단계별 연습이 됩니다.</p>
+            <h3>화면 연습은 어떻게 하나요?</h3>
+            <p>연습할 내용을 입력하고 화면 연습을 선택하세요. 손가락, 스타일러스, 마우스로 따라 쓴 뒤 모양과 위치, 완성도, 선 안정성 점수를 확인할 수 있습니다.</p>
           </section>
           <section className="info-card">
             <span className="info-number">03</span>
-            <h3>입력 종류별 추천 사용법</h3>
-            <p>처음에는 자음·모음이나 한 글자를 크게 연습하고, 익숙해지면 쉬운 단어와 아이 이름을 넣어 보세요. 짧은 문장은 혼자쓰기 비율을 천천히 늘리는 것이 좋습니다.</p>
+            <h3>점수는 어떻게 활용하나요?</h3>
+            <p>점수는 공식 진단이 아니라 반복 연습을 돕는 참고 값입니다. 최고 점수와 처음 점수의 차이를 보고 아이가 나아진 부분을 함께 찾아 주세요.</p>
           </section>
           <section className="info-card">
             <span className="info-number">04</span>
-            <h3>출력 전 확인할 점</h3>
-            <p>미리보기에서 글자, 단어와 이름의 철자를 확인하고 인쇄 설정은 A4 세로, 배율 100% 또는 실제 크기를 권장합니다. 브라우저 머리글과 바닥글을 끄면 더 깔끔합니다.</p>
+            <h3>인쇄 학습지로 이어가기</h3>
+            <p>세션 완료 화면에서 점수가 낮은 글자를 선택하면 기존 학습지 입력창과 따라쓰기 많이 설정이 자동으로 적용됩니다.</p>
           </section>
         </div>
 
         <section className="privacy-section">
           <div>
             <p className="eyebrow">입력 정보 보호</p>
-            <h3>아이 이름은 이 기기 안에서만 사용돼요</h3>
+            <h3>연습과 분석은 이 브라우저 안에서 실행돼요</h3>
           </div>
-          <p>현재 서비스는 회원가입, 로그인, 데이터베이스 저장 기능이 없습니다. 입력한 글자, 단어와 이름은 PDF를 만들거나 인쇄 미리보기를 표시할 때 브라우저 안에서만 처리됩니다.</p>
+          <p>입력한 이름과 단어, 필기 이미지는 서버에 업로드되지 않습니다. 연습 기록에는 날짜와 점수만 저장되며 브라우저 데이터를 삭제하면 함께 사라질 수 있습니다.</p>
           <a href="/privacy/">개인정보 처리방침 자세히 보기</a>
         </section>
 
         <div className="content-links">
+          <a href="/practice/">화면 연습 바로가기</a>
           <a href="/guide/">한글쓰기 사용 가이드 보기</a>
           <a href="/faq/">자주 묻는 질문 확인하기</a>
         </div>

@@ -9,3 +9,4 @@ outputs
 .env.local
 *.local
 .DS_Store
+.test-dist
