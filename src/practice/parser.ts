@@ -1,41 +1,38 @@
-import type { PracticeProgressMode } from './types'
+import { isSupportedHangulCharacter } from './hangulDecompose'
+import type { PracticeParseResult } from './types'
 
-export const MAX_PRACTICE_ITEMS = 10
+const MAX_ITEMS = 10
 
-export interface ParsedPracticeItems {
-  items: string[]
-  totalBeforeLimit: number
-  truncated: boolean
-  estimatedMinutes: number
-}
-
-function splitGraphemes(value: string): string[] {
+function segmentGraphemes(value: string): string[] {
   if (typeof Intl !== 'undefined' && 'Segmenter' in Intl) {
-    const segmenter = new Intl.Segmenter('ko', { granularity: 'grapheme' })
-    return Array.from(segmenter.segment(value), (part) => part.segment)
+    const Segmenter = Intl.Segmenter as typeof Intl.Segmenter
+    return Array.from(new Segmenter('ko', { granularity: 'grapheme' }).segment(value), (entry) => entry.segment)
   }
   return Array.from(value)
 }
 
-function splitInputGroups(input: string): string[] {
-  return input
-    .split(/[\n,]+/)
-    .map((item) => item.trim())
-    .filter(Boolean)
-}
-
-export function parsePracticeItems(input: string, mode: PracticeProgressMode): ParsedPracticeItems {
-  const groups = splitInputGroups(input)
-  const source = mode === 'character'
-    ? groups.flatMap((group) => splitGraphemes(group).filter((part) => !/^\s+$/u.test(part)))
-    : groups
-  const unique = [...new Set(source)]
-  const items = unique.slice(0, MAX_PRACTICE_ITEMS)
-
+export function parsePracticeItems(rawText: string): PracticeParseResult {
+  const normalized = rawText.replace(/,/g, '\n')
+  const supported: string[] = []
+  const excluded: string[] = []
+  const seen = new Set<string>()
+  segmentGraphemes(normalized).forEach((segment) => {
+    if (/^\s+$/u.test(segment)) return
+    if (isSupportedHangulCharacter(segment)) {
+      if (!seen.has(segment)) {
+        seen.add(segment)
+        supported.push(segment)
+      }
+    } else if (!excluded.includes(segment)) {
+      excluded.push(segment)
+    }
+  })
+  const items = supported.slice(0, MAX_ITEMS)
   return {
     items,
-    totalBeforeLimit: unique.length,
-    truncated: unique.length > MAX_PRACTICE_ITEMS,
-    estimatedMinutes: Math.max(1, Math.ceil(items.length * (mode === 'character' ? 0.7 : 1.2))),
+    excluded,
+    truncated: supported.length > MAX_ITEMS,
+    totalBeforeLimit: supported.length,
+    estimatedMinutes: Math.max(1, Math.ceil(items.length * 0.6)),
   }
 }
