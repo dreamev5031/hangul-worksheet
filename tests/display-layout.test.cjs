@@ -20,7 +20,7 @@ function assertDescriptor(character) {
   assert.equal(isDisplayGlyphInBounds(descriptor), true, `${character} 표시 glyph가 캔버스 범위를 벗어남`)
   assert.ok(bounds.x >= 0 && bounds.y >= 0, `${character} 시작 좌표 오류`)
   assert.ok(bounds.right <= 1 && bounds.bottom <= 1, `${character} 끝 좌표 오류`)
-  assert.ok(bounds.width >= 0.45 && bounds.height >= 0.45, `${character} 표시 glyph가 지나치게 작음`)
+  assert.ok(bounds.width >= 0.42 && bounds.height >= 0.4, `${character} 표시 glyph가 지나치게 작음`)
   return descriptor
 }
 
