@@ -12,7 +12,6 @@ export default defineConfig(({ mode }) => {
     : ''
 
   return {
-    // Cloudflare Pages serves this project from the domain root.
     base: '/',
     plugins: [
       react(),
@@ -29,6 +28,7 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         input: {
           home: 'index.html',
+          practice: 'practice/index.html',
           about: 'about/index.html',
           privacy: 'privacy/index.html',
           terms: 'terms/index.html',
