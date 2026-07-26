@@ -20,15 +20,25 @@ function place(strokes: StrokePath[], box: LayoutBox, prefix: string): StrokePat
   return strokes.map((stroke, index) => transformStroke(stroke, box, `${prefix}${index + 1}-`))
 }
 
+function centeredSquare(box: LayoutBox): LayoutBox {
+  const size = Math.min(box.width, box.height)
+  return {
+    x: box.x + (box.width - size) / 2,
+    y: box.y + (box.height - size) / 2,
+    width: size,
+    height: size,
+  }
+}
+
 function placeFinal(finalJamo: string, box: LayoutBox): StrokePath[] {
   const cluster = FINAL_CLUSTER_COMPONENTS[finalJamo]
-  if (!cluster) return place(getSimpleJamoTemplate(finalJamo), box, `final-${finalJamo}-`)
+  if (!cluster) return place(getSimpleJamoTemplate(finalJamo), centeredSquare(box), `final-${finalJamo}-`)
   const [left, right] = cluster
   const gap = 0.025
   const half = (box.width - gap) / 2
   return [
-    ...place(getSimpleJamoTemplate(left), { x: box.x, y: box.y, width: half, height: box.height }, `final-${finalJamo}-l-`),
-    ...place(getSimpleJamoTemplate(right), { x: box.x + half + gap, y: box.y, width: half, height: box.height }, `final-${finalJamo}-r-`),
+    ...place(getSimpleJamoTemplate(left), centeredSquare({ x: box.x, y: box.y, width: half, height: box.height }), `final-${finalJamo}-l-`),
+    ...place(getSimpleJamoTemplate(right), centeredSquare({ x: box.x + half + gap, y: box.y, width: half, height: box.height }), `final-${finalJamo}-r-`),
   ]
 }
 
