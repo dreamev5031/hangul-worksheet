@@ -49,10 +49,20 @@ jobs:
       - name: Browser-test landscape layouts and display glyphs
         shell: bash
         run: bash tests/browser-practice-smoke.sh
-      - name: Upload display glyph screenshots
+      - name: Collect browser diagnostics
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p artifacts/practice-browser-debug
+          cp -r /tmp/practice-browser/. artifacts/practice-browser-debug/ 2>/dev/null || true
+          cp /tmp/hangul-browser-http.log artifacts/practice-browser-debug/ 2>/dev/null || true
+      - name: Upload display glyph screenshots and diagnostics
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: practice-display-glyphs
-          path: artifacts/practice-glyphs
-          if-no-files-found: error
+          path: |
+            artifacts/practice-glyphs
+            artifacts/practice-browser-debug
+          if-no-files-found: warn
           retention-days: 14
