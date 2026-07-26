@@ -4,10 +4,6 @@ on:
   push:
     branches:
       - main
-      - agent/production-landscape-smoke
-  pull_request:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:
@@ -16,7 +12,7 @@ permissions:
 jobs:
   production-smoke:
     runs-on: ubuntu-latest
-    timeout-minutes: 18
+    timeout-minutes: 22
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -40,7 +36,7 @@ jobs:
           echo "asset=$expected_asset" >> "$GITHUB_OUTPUT"
 
           success=0
-          for attempt in {1..30}; do
+          for attempt in {1..36}; do
             home_status="$(curl --silent --show-error --location --max-time 25 --output /tmp/home.html --write-out '%{http_code}' "$base/" || true)"
             practice_status="$(curl --silent --show-error --location --max-time 25 --output /tmp/practice.html --write-out '%{http_code}' "$base/practice/" || true)"
             privacy_status="$(curl --silent --show-error --location --max-time 25 --output /tmp/privacy.html --write-out '%{http_code}' "$base/privacy/" || true)"
@@ -84,51 +80,68 @@ jobs:
           grep -Fq '획순 연습 시작하기' /tmp/app.js
           grep -Fq '참 잘했어요!' /tmp/app.js
           grep -Fq '필기 이미지와 실제 획 좌표는 저장하지 않습니다' /tmp/app.js
-          grep -Fq 'display-glyph-layer-v1' /tmp/app.js
+          grep -Fq 'canonical-stroke-rendering-v2' /tmp/app.js
           grep -Fq 'practice-side-panel' /tmp/app.js
           grep -Fq 'tablet-landscape' /tmp/app.js
           grep -Fq 'PDF로 저장' /tmp/app.js
           grep -Fq '인쇄하기' /tmp/app.js
+          if grep -Fq 'display-glyph-layer-v1' /tmp/app.js; then
+            echo 'Legacy system-font display glyph remains in production bundle' >&2
+            exit 1
+          fi
           if grep -Fq '채점하기' /tmp/app.js; then
             echo 'Legacy score action remains in production bundle' >&2
             exit 1
           fi
-          echo "Production verified with display glyph and landscape layout asset: $asset"
-      - name: Install Korean font for live browser verification
+          echo "Production canonical stroke bundle verified: $asset"
+      - name: Install Korean UI font for readable screenshots
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq fonts-noto-cjk
           fc-cache -f
-      - name: Verify live tablet landscape layouts
+      - name: Verify live canonical stroke screens
         shell: bash
         run: |
           set -euo pipefail
           chrome="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser)"
-          mkdir -p artifacts/production-landscape
-          for viewport in '1024 600' '1024 768' '1180 820'; do
-            read -r width height <<<"$viewport"
-            output="/tmp/live-${width}x${height}.html"
+          mkdir -p artifacts/production-canonical
+          scenarios=(
+            'tablet-portrait-ba 768 1024 portrait %EB%B0%94'
+            'tablet-portrait-da 768 1024 portrait %EB%8B%A4'
+            'tablet-portrait-bam 768 1024 portrait %EB%B0%A4'
+            'tablet-landscape-hwang 1024 768 tablet-landscape %ED%99%A9'
+            'tablet-landscape-seul 1024 768 tablet-landscape %EC%8A%AC'
+            'phone-portrait-da 390 844 portrait %EB%8B%A4'
+            'phone-landscape-bam 844 390 phone-landscape %EB%B0%A4'
+          )
+          for scenario in "${scenarios[@]}"; do
+            read -r name width height expected_mode encoded <<<"$scenario"
+            url="https://hangul-worksheet.pages.dev/practice/?start=1&text=${encoded}"
+            output="/tmp/live-${name}.html"
             "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars \
-              --force-device-scale-factor=1 --window-size="${width},${height}" --virtual-time-budget=4500 \
-              --run-all-compositor-stages-before-draw --dump-dom \
-              'https://hangul-worksheet.pages.dev/practice/?start=1&text=%ED%99%A9' >"$output"
-            grep -Fq 'data-layout-mode="tablet-landscape"' "$output"
+              --force-device-scale-factor=1 --window-size="${width},${height}" --virtual-time-budget=5000 \
+              --run-all-compositor-stages-before-draw --dump-dom "$url" >"$output"
+            grep -Fq "data-layout-mode=\"${expected_mode}\"" "$output"
             grep -Fq 'data-scroll-ok="true"' "$output"
-            grep -Fq 'data-display-glyph-layer="display-glyph-layer-v1"' "$output"
-            canvas_side="$(grep -oE 'data-canvas-side="[0-9]+"' "$output" | head -1 | grep -oE '[0-9]+')"
-            panel_width="$(grep -oE 'data-panel-width="[0-9]+"' "$output" | head -1 | grep -oE '[0-9]+')"
-            test "$canvas_side" -ge 400
-            test "$panel_width" -ge 240
+            grep -Fq 'data-canonical-stroke-source="canonical-stroke-rendering-v2"' "$output"
+            if grep -Fq 'data-display-glyph-layer' "$output"; then
+              echo "Legacy display glyph remains in ${name}" >&2
+              exit 1
+            fi
+            if [[ "$name" == *-da ]]; then
+              grep -Fq 'data-canonical-stroke-count="4"' "$output"
+              grep -Fq '1 / 4획' "$output"
+            fi
             "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars \
-              --force-device-scale-factor=1 --window-size="${width},${height}" --virtual-time-budget=3500 \
-              --run-all-compositor-stages-before-draw --screenshot="artifacts/production-landscape/${width}x${height}.png" \
-              'https://hangul-worksheet.pages.dev/practice/?start=1&text=%ED%99%A9'
-            echo "live=${width}x${height} canvas=${canvas_side} panel=${panel_width} scroll=ok"
+              --force-device-scale-factor=1 --window-size="${width},${height}" --virtual-time-budget=4000 \
+              --run-all-compositor-stages-before-draw --screenshot="artifacts/production-canonical/${name}.png" "$url"
+            test -s "artifacts/production-canonical/${name}.png"
+            echo "live=${name} viewport=${width}x${height} mode=${expected_mode} canonical=ok scroll=ok"
           done
-      - name: Upload live production landscape screenshots
+      - name: Upload live production canonical screenshots
         uses: actions/upload-artifact@v4
         with:
-          name: production-landscape-screenshots
-          path: artifacts/production-landscape
+          name: production-canonical-screenshots
+          path: artifacts/production-canonical
           if-no-files-found: error
           retention-days: 14
