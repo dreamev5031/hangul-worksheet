@@ -5,6 +5,9 @@ on:
     branches:
       - main
       - agent/production-landscape-smoke
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
