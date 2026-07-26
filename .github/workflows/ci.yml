@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-      - agent/screen-practice
+      - 'agent/**'
   pull_request:
     branches:
       - main
@@ -15,7 +15,7 @@ permissions:
 jobs:
   test-build:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -46,3 +46,13 @@ jobs:
           grep -q '<div id="root"></div>' /tmp/home.html
           grep -q '<div id="root"></div>' /tmp/practice.html
           grep -q '<div id="root"></div>' /tmp/privacy.html
+      - name: Browser-test landscape layouts and display glyphs
+        shell: bash
+        run: bash tests/browser-practice-smoke.sh
+      - name: Upload display glyph screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: practice-display-glyphs
+          path: artifacts/practice-glyphs
+          if-no-files-found: error
+          retention-days: 14
