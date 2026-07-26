@@ -11,6 +11,8 @@ interface JamoOpticalRule {
   roleLayouts?: Partial<Record<SyllableRole, Partial<Record<SyllableLayoutType, OpticalAdjustment>>>>
 }
 
+const ROUND_INITIALS = new Set(['ㅇ', 'ㅎ'])
+
 export const JAMO_OPTICAL_ADJUSTMENTS: Record<string, JamoOpticalRule> = {
   'ㄱ': { roles: { initial: { scaleX: 1.02, scaleY: 1.02 } } },
   'ㄴ': { roles: { final: { scaleX: 1.12, scaleY: 1.06, translateY: -0.006 } } },
@@ -35,10 +37,10 @@ export const JAMO_OPTICAL_ADJUSTMENTS: Record<string, JamoOpticalRule> = {
       final: { scaleX: 1.18, scaleY: 1.18, translateY: -0.01, strokeWidthScale: 1.03 },
     },
   },
-  'ㅈ': { roles: { initial: { scaleX: 0.98, scaleY: 1.0 }, final: { scaleX: 1.06, scaleY: 1.04 } } },
-  'ㅊ': { roles: { initial: { scaleX: 1.0, scaleY: 1.04, translateY: 0.004 } } },
+  'ㅈ': { roles: { initial: { scaleX: 0.98, scaleY: 1 }, final: { scaleX: 1.06, scaleY: 1.04 } } },
+  'ㅊ': { roles: { initial: { scaleX: 1, scaleY: 1.04, translateY: 0.004 } } },
   'ㅋ': { roles: { initial: { scaleX: 1.01, scaleY: 1.01 } } },
-  'ㅌ': { roles: { initial: { scaleX: 0.99, scaleY: 1.0 } } },
+  'ㅌ': { roles: { initial: { scaleX: 0.99, scaleY: 1 } } },
   'ㅍ': { roles: { initial: { scaleX: 0.98, scaleY: 0.98 } } },
   'ㅎ': {
     roles: {
@@ -91,18 +93,34 @@ export function mergeOpticalAdjustments(...adjustments: Array<OpticalAdjustment 
   }, {})
 }
 
+function getRoleLayoutAdjustment(
+  jamo: string,
+  role: SyllableRole,
+  layoutType: SyllableLayoutType,
+): OpticalAdjustment | undefined {
+  const horizontal = layoutType === 'horizontal-no-final' || layoutType === 'horizontal-with-final'
+  if (!horizontal) return undefined
+  if (role === 'initial' && !ROUND_INITIALS.has(jamo)) {
+    return { scaleX: 1.35, scaleY: 0.98 }
+  }
+  if (role === 'medial') {
+    return { scaleX: 1.2, scaleY: 0.96 }
+  }
+  return undefined
+}
+
 export function getOpticalAdjustment(
   jamo: string,
   role: SyllableRole,
   layoutType: SyllableLayoutType,
 ): OpticalAdjustment {
   const rule = JAMO_OPTICAL_ADJUSTMENTS[jamo]
-  if (!rule) return {}
   return mergeOpticalAdjustments(
-    rule.all,
-    rule.roles?.[role],
-    rule.layouts?.[layoutType],
-    rule.roleLayouts?.[role]?.[layoutType],
+    getRoleLayoutAdjustment(jamo, role, layoutType),
+    rule?.all,
+    rule?.roles?.[role],
+    rule?.layouts?.[layoutType],
+    rule?.roleLayouts?.[role]?.[layoutType],
   )
 }
 
