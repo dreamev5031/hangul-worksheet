@@ -37,8 +37,8 @@ const BASE_TEMPLATES: Record<SyllableLayoutType, SyllableLayoutTemplate> = {
     medial: [{ x: 0.5, y: 0.08, width: 0.27, height: 0.49 }],
     final: { x: 0.27, y: 0.65, width: 0.46, height: 0.27 },
     clusterFinal: [
-      { x: 0.23, y: 0.67, width: 0.25, height: 0.24 },
-      { x: 0.52, y: 0.67, width: 0.25, height: 0.24 },
+      { x: 0.24, y: 0.67, width: 0.24, height: 0.24 },
+      { x: 0.52, y: 0.67, width: 0.24, height: 0.24 },
     ],
     minimumGap: 0.055,
     target: { x: 0.12, y: 0.08, width: 0.76, height: 0.84 },
@@ -56,8 +56,8 @@ const BASE_TEMPLATES: Record<SyllableLayoutType, SyllableLayoutTemplate> = {
     medial: [{ x: 0.13, y: 0.36, width: 0.74, height: 0.2 }],
     final: { x: 0.27, y: 0.65, width: 0.46, height: 0.27 },
     clusterFinal: [
-      { x: 0.23, y: 0.67, width: 0.25, height: 0.24 },
-      { x: 0.52, y: 0.67, width: 0.25, height: 0.24 },
+      { x: 0.24, y: 0.67, width: 0.24, height: 0.24 },
+      { x: 0.52, y: 0.67, width: 0.24, height: 0.24 },
     ],
     minimumGap: 0.05,
     target: { x: 0.13, y: 0.08, width: 0.74, height: 0.84 },
@@ -81,8 +81,8 @@ const BASE_TEMPLATES: Record<SyllableLayoutType, SyllableLayoutTemplate> = {
     ],
     final: { x: 0.27, y: 0.66, width: 0.46, height: 0.25 },
     clusterFinal: [
-      { x: 0.23, y: 0.68, width: 0.25, height: 0.22 },
-      { x: 0.52, y: 0.68, width: 0.25, height: 0.22 },
+      { x: 0.24, y: 0.68, width: 0.24, height: 0.22 },
+      { x: 0.52, y: 0.68, width: 0.24, height: 0.22 },
     ],
     minimumGap: 0.05,
     target: { x: 0.13, y: 0.07, width: 0.74, height: 0.86 },
