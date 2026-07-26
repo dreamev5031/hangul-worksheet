@@ -16,7 +16,7 @@ permissions:
 jobs:
   test-build:
     runs-on: ubuntu-latest
-    timeout-minutes: 22
+    timeout-minutes: 25
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -55,7 +55,7 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq fonts-noto-cjk
           fc-cache -f
-      - name: Browser-test canonical strokes and responsive layouts
+      - name: Browser-test optical glyph layouts and responsive screens
         shell: bash
         run: bash tests/browser-practice-smoke.sh
       - name: Collect browser diagnostics
@@ -66,13 +66,13 @@ jobs:
           cp -r /tmp/practice-browser/. artifacts/practice-browser-debug/ 2>/dev/null || true
           cp /tmp/hangul-browser-http.log artifacts/practice-browser-debug/ 2>/dev/null || true
           cp /tmp/npm-test.log artifacts/practice-browser-debug/ 2>/dev/null || true
-      - name: Upload canonical stroke screenshots and diagnostics
+      - name: Upload optical glyph screenshots and diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: canonical-stroke-screenshots
+          name: glyph-optical-layout-screenshots
           path: |
-            artifacts/canonical-strokes
+            artifacts/glyph-optical-layout
             artifacts/practice-browser-debug
           if-no-files-found: warn
           retention-days: 14
