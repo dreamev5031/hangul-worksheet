@@ -1,8 +1,18 @@
+import type { ChangeEvent } from 'react'
 import type { WorksheetSettings } from '../types'
+import { parsePracticeItems } from '../practice/parser'
+import type { PracticeSessionConfig } from '../practice/types'
+
+export type CreationMode = 'print' | 'screen'
 
 interface WorksheetControlsProps {
   settings: WorksheetSettings
   onChange: (next: WorksheetSettings) => void
+  creationMode: CreationMode
+  onCreationModeChange: (mode: CreationMode) => void
+  practiceConfig: PracticeSessionConfig
+  onPracticeConfigChange: (next: PracticeSessionConfig) => void
+  onStartPractice: () => void
   onDownload: () => void
   onPrint: () => void
   isDownloading: boolean
@@ -28,9 +38,24 @@ const practiceModes: Array<{
   { value: 'independent', title: '빈칸 많이', description: '첫 줄만 보고 써요' },
 ]
 
+const displayModes: Array<{
+  value: PracticeSessionConfig['displayMode']
+  title: string
+  description: string
+}> = [
+  { value: 'faint', title: '흐린 글자', description: '연한 글자 위에 따라 써요' },
+  { value: 'dotted', title: '점선 글자', description: '점선을 따라 천천히 써요' },
+  { value: 'independent', title: '혼자 쓰기', description: '글자를 보고 직접 써요' },
+]
+
 export default function WorksheetControls({
   settings,
   onChange,
+  creationMode,
+  onCreationModeChange,
+  practiceConfig,
+  onPracticeConfigChange,
+  onStartPractice,
   onDownload,
   onPrint,
   isDownloading,
@@ -40,13 +65,20 @@ export default function WorksheetControls({
     value: WorksheetSettings[K],
   ) => onChange({ ...settings, [key]: value })
 
+  const updatePractice = <K extends keyof PracticeSessionConfig>(
+    key: K,
+    value: PracticeSessionConfig[K],
+  ) => onPracticeConfigChange({ ...practiceConfig, [key]: value })
+
+  const parsedPractice = parsePracticeItems(settings.rawWords, practiceConfig.progressMode)
+
   return (
     <section className="controls-card no-print" aria-labelledby="controls-title">
       <div className="section-heading">
         <span className="step-number">1</span>
         <div>
-          <h2 id="controls-title">맞춤 학습지 만들기</h2>
-          <p>연습할 내용을 입력하면 바로 만들어져요.</p>
+          <h2 id="controls-title">연습 내용 만들기</h2>
+          <p>연습할 내용을 입력하고 인쇄 또는 화면 연습을 선택하세요.</p>
         </div>
       </div>
 
@@ -59,7 +91,10 @@ export default function WorksheetControls({
           id="words"
           aria-describedby="words-description words-hint"
           value={settings.rawWords}
-          onChange={(event) => update('rawWords', event.target.value)}
+          onChange={(event: ChangeEvent<HTMLTextAreaElement>) => {
+            update('rawWords', event.target.value)
+            updatePractice('rawText', event.target.value)
+          }}
           placeholder={'ㄱ, ㄴ, ㄷ\n가, 나, 다\n공룡, 사과, 김민준'}
           rows={5}
         />
@@ -70,120 +105,217 @@ export default function WorksheetControls({
           <button
             className="clear-input-button"
             type="button"
-            onClick={() => update('rawWords', '')}
+            onClick={() => {
+              update('rawWords', '')
+              updatePractice('rawText', '')
+            }}
             disabled={!settings.rawWords}
           >
             입력 지우기
           </button>
         </div>
       </div>
-      <section className="settings-section output-settings" aria-labelledby="output-settings-title">
-        <h3 id="output-settings-title">출력 설정</h3>
 
-        <fieldset className="control-group compact">
-          <legend>글자 크기</legend>
-          <div className="segmented size-options">
-            {letterSizes.map((size) => (
-              <label key={size.value} className={settings.letterSize === size.value ? 'selected' : ''}>
-                <input
-                  type="radio"
-                  name="letterSize"
-                  checked={settings.letterSize === size.value}
-                  onChange={() => update('letterSize', size.value)}
-                />
-                <strong>{size.title}</strong>
-                <small>{size.description}</small>
-              </label>
-            ))}
-          </div>
-        </fieldset>
-
-        <fieldset className="control-group compact practice-mode-group">
-          <legend>연습 방식</legend>
-          <div className="segmented practice-mode-options">
-            {practiceModes.map((mode) => (
-              <label key={mode.value} className={settings.practiceMode === mode.value ? 'selected' : ''}>
-                <input
-                  type="radio"
-                  name="practiceMode"
-                  checked={settings.practiceMode === mode.value}
-                  onChange={() => update('practiceMode', mode.value)}
-                />
-                <strong>{mode.title}</strong>
-                <small>{mode.description}</small>
-              </label>
-            ))}
-          </div>
-        </fieldset>
-
-        <fieldset className="control-group compact rows-setting">
-          <legend>줄 수</legend>
-          <div className="segmented two-up">
-            {([3, 5] as const).map((count) => (
-              <label key={count} className={settings.repeatRows === count ? 'selected' : ''}>
-                <input
-                  type="radio"
-                  name="repeatRows"
-                  checked={settings.repeatRows === count}
-                  onChange={() => update('repeatRows', count)}
-                />
-                {count}줄
-              </label>
-            ))}
-          </div>
-        </fieldset>
-      </section>
-
-      <section className="settings-section additional-settings" aria-labelledby="additional-settings-title">
-        <h3 id="additional-settings-title">추가 설정</h3>
-        <div className="switch-list additional-switches">
-          <label className="switch-row">
-            <span><strong>이름칸 표시</strong></span>
+      <fieldset className="control-group compact creation-mode-group">
+        <legend>연습 방법</legend>
+        <div className="segmented two-up creation-mode-options">
+          <label className={creationMode === 'print' ? 'selected' : ''}>
             <input
-              type="checkbox"
-              role="switch"
-              checked={settings.showNameField}
-              onChange={(event) => update('showNameField', event.target.checked)}
+              type="radio"
+              name="creationMode"
+              checked={creationMode === 'print'}
+              onChange={() => onCreationModeChange('print')}
             />
+            <strong>인쇄 학습지</strong>
+            <small>PDF 저장·인쇄</small>
           </label>
-          <label className="switch-row">
-            <span><strong>날짜칸 표시</strong></span>
+          <label className={creationMode === 'screen' ? 'selected' : ''}>
             <input
-              type="checkbox"
-              role="switch"
-              checked={settings.showDateField}
-              onChange={(event) => update('showDateField', event.target.checked)}
+              type="radio"
+              name="creationMode"
+              checked={creationMode === 'screen'}
+              onChange={() => onCreationModeChange('screen')}
             />
-          </label>
-          <label className="switch-row">
-            <span><strong>빈칸 연습 포함</strong></span>
-            <input
-              type="checkbox"
-              role="switch"
-              checked={settings.includeBlank}
-              onChange={(event) => update('includeBlank', event.target.checked)}
-            />
-          </label>
-          <label className="switch-row">
-            <span><strong>칭찬 문구 포함</strong></span>
-            <input
-              type="checkbox"
-              role="switch"
-              checked={settings.includePraise}
-              onChange={(event) => update('includePraise', event.target.checked)}
-            />
+            <strong>화면에서 바로 연습</strong>
+            <small>손가락·펜·마우스</small>
           </label>
         </div>
-      </section>
+      </fieldset>
 
-      <div className="action-buttons">
-        <button className="primary-button" type="button" onClick={onDownload} disabled={isDownloading}>
-          {isDownloading ? 'PDF 만드는 중…' : 'PDF 다운로드'}
-        </button>
-        <button className="secondary-button" type="button" onClick={onPrint}>
-          인쇄하기
-        </button>
-      </div>
+      {creationMode === 'print' ? (
+        <>
+          <section className="settings-section output-settings" aria-labelledby="output-settings-title">
+            <h3 id="output-settings-title">출력 설정</h3>
+
+            <fieldset className="control-group compact">
+              <legend>글자 크기</legend>
+              <div className="segmented size-options">
+                {letterSizes.map((size) => (
+                  <label key={size.value} className={settings.letterSize === size.value ? 'selected' : ''}>
+                    <input
+                      type="radio"
+                      name="letterSize"
+                      checked={settings.letterSize === size.value}
+                      onChange={() => update('letterSize', size.value)}
+                    />
+                    <strong>{size.title}</strong>
+                    <small>{size.description}</small>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+
+            <fieldset className="control-group compact practice-mode-group">
+              <legend>연습 방식</legend>
+              <div className="segmented practice-mode-options">
+                {practiceModes.map((mode) => (
+                  <label key={mode.value} className={settings.practiceMode === mode.value ? 'selected' : ''}>
+                    <input
+                      type="radio"
+                      name="practiceMode"
+                      checked={settings.practiceMode === mode.value}
+                      onChange={() => update('practiceMode', mode.value)}
+                    />
+                    <strong>{mode.title}</strong>
+                    <small>{mode.description}</small>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+
+            <fieldset className="control-group compact rows-setting">
+              <legend>줄 수</legend>
+              <div className="segmented two-up">
+                {([3, 5] as const).map((count) => (
+                  <label key={count} className={settings.repeatRows === count ? 'selected' : ''}>
+                    <input
+                      type="radio"
+                      name="repeatRows"
+                      checked={settings.repeatRows === count}
+                      onChange={() => update('repeatRows', count)}
+                    />
+                    {count}줄
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          </section>
+
+          <section className="settings-section additional-settings" aria-labelledby="additional-settings-title">
+            <h3 id="additional-settings-title">추가 설정</h3>
+            <div className="switch-list additional-switches">
+              <label className="switch-row">
+                <span><strong>이름칸 표시</strong></span>
+                <input
+                  type="checkbox"
+                  role="switch"
+                  checked={settings.showNameField}
+                  onChange={(event: ChangeEvent<HTMLInputElement>) => update('showNameField', event.target.checked)}
+                />
+              </label>
+              <label className="switch-row">
+                <span><strong>날짜칸 표시</strong></span>
+                <input
+                  type="checkbox"
+                  role="switch"
+                  checked={settings.showDateField}
+                  onChange={(event: ChangeEvent<HTMLInputElement>) => update('showDateField', event.target.checked)}
+                />
+              </label>
+              <label className="switch-row">
+                <span><strong>빈칸 연습 포함</strong></span>
+                <input
+                  type="checkbox"
+                  role="switch"
+                  checked={settings.includeBlank}
+                  onChange={(event: ChangeEvent<HTMLInputElement>) => update('includeBlank', event.target.checked)}
+                />
+              </label>
+              <label className="switch-row">
+                <span><strong>칭찬 문구 포함</strong></span>
+                <input
+                  type="checkbox"
+                  role="switch"
+                  checked={settings.includePraise}
+                  onChange={(event: ChangeEvent<HTMLInputElement>) => update('includePraise', event.target.checked)}
+                />
+              </label>
+            </div>
+          </section>
+
+          <div className="action-buttons">
+            <button className="primary-button" type="button" onClick={onDownload} disabled={isDownloading}>
+              {isDownloading ? 'PDF 만드는 중…' : 'PDF 다운로드'}
+            </button>
+            <button className="secondary-button" type="button" onClick={onPrint}>
+              인쇄하기
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <section className="settings-section screen-settings" aria-labelledby="screen-settings-title">
+            <h3 id="screen-settings-title">화면 연습 설정</h3>
+            <fieldset className="control-group compact">
+              <legend>표시 방식</legend>
+              <div className="segmented practice-display-options">
+                {displayModes.map((mode) => (
+                  <label key={mode.value} className={practiceConfig.displayMode === mode.value ? 'selected' : ''}>
+                    <input
+                      type="radio"
+                      name="displayMode"
+                      checked={practiceConfig.displayMode === mode.value}
+                      onChange={() => updatePractice('displayMode', mode.value)}
+                    />
+                    <strong>{mode.title}</strong>
+                    <small>{mode.description}</small>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+
+            <fieldset className="control-group compact">
+              <legend>진행 방식</legend>
+              <div className="segmented two-up progress-mode-options">
+                <label className={practiceConfig.progressMode === 'character' ? 'selected' : ''}>
+                  <input
+                    type="radio"
+                    name="progressMode"
+                    checked={practiceConfig.progressMode === 'character'}
+                    onChange={() => updatePractice('progressMode', 'character')}
+                  />
+                  <strong>한 글자씩</strong>
+                  <small>공백·중복 제외</small>
+                </label>
+                <label className={practiceConfig.progressMode === 'line' ? 'selected' : ''}>
+                  <input
+                    type="radio"
+                    name="progressMode"
+                    checked={practiceConfig.progressMode === 'line'}
+                    onChange={() => updatePractice('progressMode', 'line')}
+                  />
+                  <strong>입력한 줄 그대로</strong>
+                  <small>단어·짧은 문장</small>
+                </label>
+              </div>
+            </fieldset>
+            {parsedPractice.truncated && (
+              <p className="limit-notice" role="status">연습 항목이 10개를 넘어 앞의 10개만 사용해요.</p>
+            )}
+          </section>
+
+          <div className="action-buttons screen-action-buttons">
+            <button
+              className="primary-button"
+              type="button"
+              onClick={onStartPractice}
+              disabled={parsedPractice.items.length === 0}
+            >
+              화면 연습 시작하기
+            </button>
+          </div>
+        </>
+      )}
     </section>
   )
 }
