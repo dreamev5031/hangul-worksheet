@@ -3,7 +3,7 @@ set -euo pipefail
 
 chrome="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser)"
 test -n "$chrome"
-mkdir -p artifacts/canonical-strokes /tmp/practice-browser
+mkdir -p artifacts/glyph-optical-layout /tmp/practice-browser
 
 python3 -m http.server 4173 --directory dist >/tmp/hangul-browser-http.log 2>&1 &
 server_pid=$!
@@ -52,7 +52,10 @@ for viewport in "${viewports[@]}"; do
     "http://127.0.0.1:4173/practice/?start=1&text=${encoded_hwang}" >"$output" 2>/tmp/practice-browser/chrome.log
   grep -Fq "data-layout-mode=\"${expected_mode}\"" "$output"
   grep -Fq 'data-scroll-ok="true"' "$output"
-  grep -Fq 'data-canonical-stroke-source="canonical-stroke-rendering-v2"' "$output"
+  grep -Fq 'data-canonical-stroke-source="canonical-stroke-rendering-v3-optical-fit"' "$output"
+  grep -Fq 'data-glyph-layout-type="compound-with-final"' "$output"
+  grep -Fq 'data-glyph-center-x="0.5000"' "$output"
+  grep -Fq 'data-glyph-center-y="0.5000"' "$output"
   if grep -Fq 'data-display-glyph-layer' "$output"; then
     echo "Legacy display glyph layer remains at ${width}x${height}" >&2
     exit 1
@@ -69,17 +72,27 @@ for viewport in "${viewports[@]}"; do
   else
     test "$panel_width" -ge 240
   fi
-  echo "viewport=${width}x${height} visualHeight=${actual_height} mode=${expected_mode} canvas=${canvas_side} panel=${panel_width} scroll=ok canonical=ok"
+  echo "viewport=${width}x${height} visualHeight=${actual_height} mode=${expected_mode} canvas=${canvas_side} panel=${panel_width} scroll=ok fit=ok"
 done
 
 scenarios=(
-  'tablet-portrait-ba 768 1024 portrait 바'
-  'tablet-portrait-da 768 1024 portrait 다'
+  'tablet-portrait-hwang 768 1024 portrait 황'
   'tablet-portrait-bam 768 1024 portrait 밤'
+  'tablet-portrait-seul 768 1024 portrait 슬'
+  'tablet-portrait-gim 768 1024 portrait 김'
+  'tablet-portrait-min 768 1024 portrait 민'
+  'tablet-portrait-jun 768 1024 portrait 준'
+  'tablet-portrait-gwa 768 1024 portrait 과'
+  'tablet-portrait-mul 768 1024 portrait 물'
+  'tablet-portrait-han 768 1024 portrait 한'
   'tablet-landscape-hwang 1024 768 tablet-landscape 황'
+  'tablet-landscape-bam 1024 768 tablet-landscape 밤'
   'tablet-landscape-seul 1024 768 tablet-landscape 슬'
-  'phone-portrait-da 390 844 portrait 다'
+  'phone-portrait-hwang 390 844 portrait 황'
+  'phone-portrait-bam 390 844 portrait 밤'
+  'phone-portrait-gim 390 844 portrait 김'
   'phone-landscape-bam 844 390 phone-landscape 밤'
+  'phone-landscape-seul 844 390 phone-landscape 슬'
 )
 
 for scenario in "${scenarios[@]}"; do
@@ -87,7 +100,7 @@ for scenario in "${scenarios[@]}"; do
   encoded="$(encode_character "$character")"
   url="http://127.0.0.1:4173/practice/?start=1&text=${encoded}"
   dom="/tmp/practice-browser/${name}.html"
-  screenshot="artifacts/canonical-strokes/${name}.png"
+  screenshot="artifacts/glyph-optical-layout/${name}.png"
 
   "$chrome" \
     --headless=new \
@@ -104,14 +117,16 @@ for scenario in "${scenarios[@]}"; do
 
   grep -Fq "data-layout-mode=\"${expected_mode}\"" "$dom"
   grep -Fq 'data-scroll-ok="true"' "$dom"
-  grep -Fq 'data-canonical-stroke-source="canonical-stroke-rendering-v2"' "$dom"
+  grep -Fq 'data-canonical-stroke-source="canonical-stroke-rendering-v3-optical-fit"' "$dom"
+  grep -Fq 'data-glyph-fit-scale=' "$dom"
+  grep -Fq 'data-glyph-fit-usage-x=' "$dom"
+  grep -Fq 'data-glyph-fit-usage-y=' "$dom"
+  grep -Fq 'data-glyph-center-x="0.5000"' "$dom"
+  grep -Fq 'data-glyph-center-y="0.5000"' "$dom"
+  grep -Fq "data-glyph-override=\"${character}\"" "$dom"
   if grep -Fq 'data-display-glyph-layer' "$dom"; then
     echo "Legacy display glyph layer remains in ${name}" >&2
     exit 1
-  fi
-  if [ "$character" = '다' ]; then
-    grep -Fq 'data-canonical-stroke-count="4"' "$dom"
-    grep -Fq '1 / 4획' "$dom"
   fi
 
   "$chrome" \
@@ -127,16 +142,26 @@ for scenario in "${scenarios[@]}"; do
     --screenshot="$screenshot" \
     "$url" >/tmp/practice-browser/screenshot.log 2>&1
   test -s "$screenshot"
-  echo "scenario=${name} character=${character} viewport=${width}x${height} mode=${expected_mode} canonical=ok scroll=ok"
+  echo "scenario=${name} character=${character} viewport=${width}x${height} mode=${expected_mode} optical=ok fit=ok scroll=ok"
 done
 
-cat > artifacts/canonical-strokes/README.txt <<'TXT'
-tablet-portrait-ba.png: 태블릿 세로 바
-tablet-portrait-da.png: 태블릿 세로 다, 총 4획
+cat > artifacts/glyph-optical-layout/README.txt <<'TXT'
+tablet-portrait-hwang.png: 태블릿 세로 황
 tablet-portrait-bam.png: 태블릿 세로 밤
+tablet-portrait-seul.png: 태블릿 세로 슬
+tablet-portrait-gim.png: 태블릿 세로 김
+tablet-portrait-min.png: 태블릿 세로 민
+tablet-portrait-jun.png: 태블릿 세로 준
+tablet-portrait-gwa.png: 태블릿 세로 과
+tablet-portrait-mul.png: 태블릿 세로 물
+tablet-portrait-han.png: 태블릿 세로 한
 tablet-landscape-hwang.png: 태블릿 가로 황
+tablet-landscape-bam.png: 태블릿 가로 밤
 tablet-landscape-seul.png: 태블릿 가로 슬
-phone-portrait-da.png: 휴대폰 세로 다, 총 4획
+phone-portrait-hwang.png: 휴대폰 세로 황
+phone-portrait-bam.png: 휴대폰 세로 밤
+phone-portrait-gim.png: 휴대폰 세로 김
 phone-landscape-bam.png: 휴대폰 가로 밤
-모든 화면은 canonical-stroke-rendering-v2 경로만 표시하며 시스템 폰트 완성 글자 레이어가 없어야 한다.
+phone-landscape-seul.png: 휴대폰 가로 슬
+모든 화면은 canonical-stroke-rendering-v3-optical-fit 최종 path만 표시하며 glyph 중심은 0.5, 0.5여야 한다.
 TXT
