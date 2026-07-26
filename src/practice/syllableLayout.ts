@@ -10,10 +10,9 @@ import {
   adjustStrokeGroup,
   fitStrokesToBox,
   getStrokeBounds,
-  multiplyStrokeWidth,
   prefixStrokeIds,
 } from './glyphFit'
-import { applyOpticalAdjustmentToBox, getOpticalAdjustment } from './opticalAdjustments'
+import { getOpticalAdjustment } from './opticalAdjustments'
 import {
   COMPLEX_BOTTOM_VOWELS,
   COMPLEX_TOP_VOWELS,
@@ -60,10 +59,9 @@ function placeTemplateInBox(
   template: StrokePath[],
   box: LayoutBox,
   prefix: string,
-  strokeWidthScale = 1,
 ): StrokePath[] {
   const fitted = fitStrokesToBox(template, box).strokes
-  return prefixStrokeIds(multiplyStrokeWidth(fitted, strokeWidthScale), prefix)
+  return prefixStrokeIds(fitted, prefix)
 }
 
 function placeJamo(
@@ -75,9 +73,9 @@ function placeJamo(
   applyOptical: boolean,
 ): StrokePath[] {
   const template = getSimpleJamoTemplate(jamo)
-  const adjustment = applyOptical ? getOpticalAdjustment(jamo, role, layoutType) : {}
-  const adjustedBox = applyOpticalAdjustmentToBox(box, adjustment)
-  return placeTemplateInBox(template, adjustedBox, prefix, adjustment.strokeWidthScale ?? 1)
+  const placed = placeTemplateInBox(template, box, prefix)
+  if (!applyOptical) return placed
+  return adjustAllStrokes(placed, getOpticalAdjustment(jamo, role, layoutType))
 }
 
 function placeMedial(
@@ -202,14 +200,12 @@ function createJamoStages(character: string, options: CharacterGenerationOptions
   const baseBox: LayoutBox = isVowel
     ? { x: 0.17, y: 0.11, width: 0.66, height: 0.78 }
     : { x: 0.14, y: 0.13, width: 0.72, height: 0.74 }
-  const layoutType: SyllableLayoutType = isVowel ? 'vertical-no-final' : 'vertical-no-final'
+  const layoutType: SyllableLayoutType = 'vertical-no-final'
   const role: SyllableRole = isVowel ? 'medial' : 'initial'
-  const adjustment = options.applyOptical === false ? {} : getOpticalAdjustment(character, role, layoutType)
-  const opticalBox = applyOpticalAdjustmentToBox(baseBox, adjustment)
   const basePlacedStrokes = placeTemplateInBox(template, baseBox, `jamo-${character}-`)
   const opticalPlacedStrokes = options.applyOptical === false
     ? basePlacedStrokes
-    : placeTemplateInBox(template, opticalBox, `jamo-${character}-`, adjustment.strokeWidthScale ?? 1)
+    : adjustAllStrokes(basePlacedStrokes, getOpticalAdjustment(character, role, layoutType))
   const beforeFitBounds = getStrokeBounds(opticalPlacedStrokes)
   const fitResult = options.applyFit === false
     ? undefined
