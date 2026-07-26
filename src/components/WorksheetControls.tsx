@@ -38,16 +38,6 @@ const practiceModes: Array<{
   { value: 'independent', title: '빈칸 많이', description: '첫 줄만 보고 써요' },
 ]
 
-const displayModes: Array<{
-  value: PracticeSessionConfig['displayMode']
-  title: string
-  description: string
-}> = [
-  { value: 'faint', title: '흐린 글자', description: '연한 글자 위에 따라 써요' },
-  { value: 'dotted', title: '점선 글자', description: '점선을 따라 천천히 써요' },
-  { value: 'independent', title: '혼자 쓰기', description: '글자를 보고 직접 써요' },
-]
-
 export default function WorksheetControls({
   settings,
   onChange,
@@ -70,7 +60,7 @@ export default function WorksheetControls({
     value: PracticeSessionConfig[K],
   ) => onPracticeConfigChange({ ...practiceConfig, [key]: value })
 
-  const parsedPractice = parsePracticeItems(settings.rawWords, practiceConfig.progressMode)
+  const parsedPractice = parsePracticeItems(settings.rawWords)
 
   return (
     <section className="controls-card no-print" aria-labelledby="controls-title">
@@ -255,52 +245,20 @@ export default function WorksheetControls({
       ) : (
         <>
           <section className="settings-section screen-settings" aria-labelledby="screen-settings-title">
-            <h3 id="screen-settings-title">화면 연습 설정</h3>
-            <fieldset className="control-group compact">
-              <legend>표시 방식</legend>
-              <div className="segmented practice-display-options">
-                {displayModes.map((mode) => (
-                  <label key={mode.value} className={practiceConfig.displayMode === mode.value ? 'selected' : ''}>
-                    <input
-                      type="radio"
-                      name="displayMode"
-                      checked={practiceConfig.displayMode === mode.value}
-                      onChange={() => updatePractice('displayMode', mode.value)}
-                    />
-                    <strong>{mode.title}</strong>
-                    <small>{mode.description}</small>
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-
-            <fieldset className="control-group compact">
-              <legend>진행 방식</legend>
-              <div className="segmented two-up progress-mode-options">
-                <label className={practiceConfig.progressMode === 'character' ? 'selected' : ''}>
-                  <input
-                    type="radio"
-                    name="progressMode"
-                    checked={practiceConfig.progressMode === 'character'}
-                    onChange={() => updatePractice('progressMode', 'character')}
-                  />
-                  <strong>한 글자씩</strong>
-                  <small>공백·중복 제외</small>
-                </label>
-                <label className={practiceConfig.progressMode === 'line' ? 'selected' : ''}>
-                  <input
-                    type="radio"
-                    name="progressMode"
-                    checked={practiceConfig.progressMode === 'line'}
-                    onChange={() => updatePractice('progressMode', 'line')}
-                  />
-                  <strong>입력한 줄 그대로</strong>
-                  <small>단어·짧은 문장</small>
-                </label>
-              </div>
-            </fieldset>
+            <h3 id="screen-settings-title">화면 획순 연습</h3>
+            <div className="stroke-order-summary">
+              <strong>한 획씩 자동으로 진행해요</strong>
+              <p>현재 획의 시작점과 방향을 보고 따라 쓰면 손을 떼는 순간 자동으로 확인합니다.</p>
+              <dl>
+                <div><dt>연습 글자</dt><dd>{parsedPractice.items.length}개</dd></div>
+                <div><dt>진행</dt><dd>한 글자씩</dd></div>
+              </dl>
+            </div>
+            {parsedPractice.excluded.length > 0 && (
+              <p className="limit-notice" role="status">화면 연습에서 제외: {parsedPractice.excluded.join(' ')}</p>
+            )}
             {parsedPractice.truncated && (
-              <p className="limit-notice" role="status">연습 항목이 10개를 넘어 앞의 10개만 사용해요.</p>
+              <p className="limit-notice" role="status">연습 글자가 10개를 넘어 앞의 10개만 사용해요.</p>
             )}
           </section>
 
