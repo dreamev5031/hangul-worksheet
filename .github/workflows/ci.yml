@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - agent/screen-practice
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  test-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Run tests
+        run: npm test
+      - name: Build production site
+        run: npm run build
+      - name: Smoke-test static routes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m http.server 4173 --directory dist >/tmp/hangul-http.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid"' EXIT
+          for attempt in {1..20}; do
+            if curl --fail --silent http://127.0.0.1:4173/ >/tmp/home.html; then break; fi
+            sleep 0.25
+          done
+          curl --fail --silent http://127.0.0.1:4173/practice/ >/tmp/practice.html
+          curl --fail --silent http://127.0.0.1:4173/privacy/ >/tmp/privacy.html
+          grep -q '<div id="root"></div>' /tmp/home.html
+          grep -q '<div id="root"></div>' /tmp/practice.html
+          grep -q '<div id="root"></div>' /tmp/privacy.html
