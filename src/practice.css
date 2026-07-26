@@ -1,5 +1,8 @@
 /* 화면 연습 기능 전용 스타일. 기존 A4/인쇄 CSS와 분리해 회귀 영향을 막습니다. */
 .desktop-primary-nav { display: flex; }
+.desktop-primary-nav a { min-height: 44px; display: inline-flex; align-items: center; }
+.segmented label, .clear-input-button { min-height: 44px; }
+.segmented label:has(input:focus-visible) { outline: 3px solid rgba(63, 125, 104, .35); outline-offset: 3px; }
 .mobile-primary-nav { display: none; }
 .creation-mode-options label { min-height: 64px; align-content: center; gap: 3px; }
 .creation-mode-options strong, .creation-mode-options small { display: block; }
@@ -170,7 +173,8 @@
   .score-breakdown { grid-template-columns: 1fr 1fr; }
   .complete-actions { grid-template-columns: 1fr; }
   .history-summary-grid { grid-template-columns: 1fr 1fr; }
-  .recent-days { grid-template-columns: repeat(7, minmax(44px, 1fr)); overflow-x: auto; padding-bottom: 4px; }
+  .recent-days { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+  .recent-days span, .recent-days strong { font-size: .58rem; }
   .history-session-list article { flex-direction: column; }
   .best-item-grid { grid-template-columns: repeat(2, 1fr); }
 }
