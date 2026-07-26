@@ -1,55 +1,110 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
-import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react'
-import type { PracticeDisplayMode, PracticeStroke } from '../practice/types'
-
-export interface PracticeCanvasHandle {
-  getStrokes: () => PracticeStroke[]
-  setStrokes: (strokes: PracticeStroke[]) => void
-  undo: () => void
-  clear: () => void
-}
+import { useEffect, useRef } from 'react'
+import type { PointerEvent as ReactPointerEvent } from 'react'
+import { pointAtProgress } from '../practice/strokePath'
+import type { GeneratedCharacter, PracticePoint } from '../practice/types'
 
 interface PracticeCanvasProps {
-  item: string
-  displayMode: PracticeDisplayMode
-  onStrokeChange?: (strokeCount: number) => void
+  character: GeneratedCharacter
+  currentStrokeIndex: number
+  completedStrokeCount: number
+  retryCount: number
+  guideReplayKey: number
+  phase: 'writing' | 'stroke-success' | 'retry' | 'character-complete'
+  failedStroke: PracticePoint[] | null
+  onInteractionStart: () => void
+  onStrokeEnd: (points: PracticePoint[]) => void
 }
 
-function cloneStrokes(strokes: PracticeStroke[]): PracticeStroke[] {
-  return strokes.map((stroke) => ({ points: stroke.points.map((point) => ({ ...point })) }))
-}
-
-function fitGuideFont(context: CanvasRenderingContext2D, text: string, width: number, height: number) {
-  const maxWidth = width * 0.78
-  const maxHeight = height * 0.7
-  let size = Math.min(height * (text.length > 1 ? 0.34 : 0.58), width * 0.58)
-  for (let index = 0; index < 18; index += 1) {
-    context.font = `800 ${size}px "Malgun Gothic", "Apple SD Gothic Neo", sans-serif`
-    const metrics = context.measureText(text)
-    const measuredHeight = (metrics.actualBoundingBoxAscent || size * 0.8) + (metrics.actualBoundingBoxDescent || size * 0.2)
-    if (metrics.width <= maxWidth && measuredHeight <= maxHeight) break
-    size *= 0.9
+function drawPolyline(
+  context: CanvasRenderingContext2D,
+  points: PracticePoint[],
+  width: number,
+  height: number,
+  style: { color: string; lineWidth: number; dash?: number[]; alpha?: number },
+) {
+  if (points.length < 2) return
+  context.save()
+  context.globalAlpha = style.alpha ?? 1
+  context.strokeStyle = style.color
+  context.lineWidth = style.lineWidth
+  context.lineCap = 'round'
+  context.lineJoin = 'round'
+  context.setLineDash(style.dash ?? [])
+  context.beginPath()
+  context.moveTo(points[0].x * width, points[0].y * height)
+  for (let index = 1; index < points.length; index += 1) {
+    context.lineTo(points[index].x * width, points[index].y * height)
   }
-  return size
+  context.stroke()
+  context.restore()
 }
 
-const PracticeCanvas = forwardRef<PracticeCanvasHandle, PracticeCanvasProps>(
-  ({ item, displayMode, onStrokeChange }, ref) => {
-    const canvasRef = useRef<HTMLCanvasElement>(null)
-    const strokesRef = useRef<PracticeStroke[]>([])
-    const activePointerRef = useRef<number | null>(null)
-    const resizeObserverRef = useRef<ResizeObserver | null>(null)
+function drawArrow(context: CanvasRenderingContext2D, from: PracticePoint, to: PracticePoint, width: number, height: number, strong: boolean) {
+  const x = to.x * width
+  const y = to.y * height
+  const angle = Math.atan2((to.y - from.y) * height, (to.x - from.x) * width)
+  const size = strong ? 13 : 10
+  context.save()
+  context.translate(x, y)
+  context.rotate(angle)
+  context.fillStyle = strong ? '#2f7d65' : '#65a58e'
+  context.beginPath()
+  context.moveTo(size, 0)
+  context.lineTo(-size * 0.6, -size * 0.55)
+  context.lineTo(-size * 0.6, size * 0.55)
+  context.closePath()
+  context.fill()
+  context.restore()
+}
 
-    const draw = () => {
-      const canvas = canvasRef.current
-      if (!canvas) return
+function normalizePoint(event: ReactPointerEvent<HTMLCanvasElement>, canvas: HTMLCanvasElement): PracticePoint {
+  const rect = canvas.getBoundingClientRect()
+  return {
+    x: Math.min(1, Math.max(0, (event.clientX - rect.left) / Math.max(1, rect.width))),
+    y: Math.min(1, Math.max(0, (event.clientY - rect.top) / Math.max(1, rect.height))),
+    pressure: event.pressure || 0.5,
+    time: performance.now(),
+  }
+}
+
+export default function PracticeCanvas({
+  character,
+  currentStrokeIndex,
+  completedStrokeCount,
+  retryCount,
+  guideReplayKey,
+  phase,
+  failedStroke,
+  onInteractionStart,
+  onStrokeEnd,
+}: PracticeCanvasProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const activePointerRef = useRef<number | null>(null)
+  const activeStrokeRef = useRef<PracticePoint[]>([])
+  const animationStartRef = useRef(performance.now())
+  const frameRef = useRef<number | null>(null)
+  const reducedMotionRef = useRef(false)
+
+  useEffect(() => {
+    reducedMotionRef.current = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  }, [])
+
+  useEffect(() => {
+    animationStartRef.current = performance.now()
+  }, [guideReplayKey, currentStrokeIndex, retryCount])
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const draw = (time = performance.now()) => {
       const rect = canvas.getBoundingClientRect()
       const dpr = Math.max(1, window.devicePixelRatio || 1)
-      const nextWidth = Math.max(1, Math.round(rect.width * dpr))
-      const nextHeight = Math.max(1, Math.round(rect.height * dpr))
-      if (canvas.width !== nextWidth || canvas.height !== nextHeight) {
-        canvas.width = nextWidth
-        canvas.height = nextHeight
+      const pixelWidth = Math.max(1, Math.round(rect.width * dpr))
+      const pixelHeight = Math.max(1, Math.round(rect.height * dpr))
+      if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
+        canvas.width = pixelWidth
+        canvas.height = pixelHeight
       }
       const context = canvas.getContext('2d')
       if (!context) return
@@ -58,165 +113,183 @@ const PracticeCanvas = forwardRef<PracticeCanvasHandle, PracticeCanvasProps>(
       context.fillStyle = '#fffefb'
       context.fillRect(0, 0, rect.width, rect.height)
 
-      context.strokeStyle = '#dce7e2'
+      context.strokeStyle = '#e6ece8'
       context.lineWidth = 1
-      context.setLineDash([5, 6])
+      context.setLineDash([5, 7])
       context.beginPath()
-      context.moveTo(rect.width / 2, rect.height * 0.08)
-      context.lineTo(rect.width / 2, rect.height * 0.92)
-      context.moveTo(rect.width * 0.08, rect.height / 2)
-      context.lineTo(rect.width * 0.92, rect.height / 2)
+      context.moveTo(rect.width / 2, rect.height * 0.06)
+      context.lineTo(rect.width / 2, rect.height * 0.94)
+      context.moveTo(rect.width * 0.06, rect.height / 2)
+      context.lineTo(rect.width * 0.94, rect.height / 2)
       context.stroke()
       context.setLineDash([])
 
-      if (displayMode !== 'independent') {
-        context.textAlign = 'center'
-        context.textBaseline = 'middle'
-        const fontSize = fitGuideFont(context, item, rect.width, rect.height)
-        context.font = `800 ${fontSize}px "Malgun Gothic", "Apple SD Gothic Neo", sans-serif`
-        if (displayMode === 'faint') {
-          context.fillStyle = 'rgba(94, 158, 135, .20)'
-          context.fillText(item, rect.width / 2, rect.height / 2)
-        } else {
-          context.strokeStyle = 'rgba(94, 158, 135, .36)'
-          context.lineWidth = Math.max(2, fontSize * 0.035)
-          context.lineCap = 'round'
-          context.lineJoin = 'round'
-          context.setLineDash([2, Math.max(7, fontSize * 0.045)])
-          context.strokeText(item, rect.width / 2, rect.height / 2)
-          context.setLineDash([])
-        }
-      }
-
-      context.strokeStyle = '#315f51'
-      context.fillStyle = '#315f51'
-      context.lineCap = 'round'
-      context.lineJoin = 'round'
-      strokesRef.current.forEach((stroke) => {
-        if (stroke.points.length === 1) {
-          const point = stroke.points[0]
-          const radius = Math.max(3, rect.width * 0.011 * (0.8 + point.pressure * 0.5))
-          context.beginPath()
-          context.arc(point.x * rect.width, point.y * rect.height, radius, 0, Math.PI * 2)
-          context.fill()
+      character.strokes.forEach((stroke, index) => {
+        const scaledWidth = Math.max(5, stroke.thickness * Math.min(rect.width, rect.height))
+        if (index < completedStrokeCount) {
+          drawPolyline(context, stroke.guidePoints, rect.width, rect.height, { color: '#2f7d65', lineWidth: scaledWidth })
           return
         }
-        for (let index = 1; index < stroke.points.length; index += 1) {
-          const previous = stroke.points[index - 1]
-          const point = stroke.points[index]
-          const pressure = (previous.pressure + point.pressure) / 2
-          context.lineWidth = Math.max(5, rect.width * 0.021 * (0.78 + pressure * 0.5))
+        if (index === currentStrokeIndex) {
+          const helpLevel = retryCount >= 3 ? 2 : retryCount >= 2 ? 1 : 0
+          drawPolyline(context, stroke.guidePoints, rect.width, rect.height, {
+            color: helpLevel >= 2 ? '#75bfa6' : '#9ed2bf',
+            lineWidth: scaledWidth * (helpLevel >= 2 ? 1.12 : 0.95),
+            dash: reducedMotionRef.current ? undefined : [scaledWidth * 0.35, scaledWidth * 0.55],
+          })
+          const startRadius = helpLevel >= 2 ? 13 : helpLevel === 1 ? 11 : 9
+          context.fillStyle = '#fffefb'
+          context.strokeStyle = '#2f7d65'
+          context.lineWidth = 3
           context.beginPath()
-          context.moveTo(previous.x * rect.width, previous.y * rect.height)
-          if (index < stroke.points.length - 1) {
-            const next = stroke.points[index + 1]
-            context.quadraticCurveTo(
-              point.x * rect.width,
-              point.y * rect.height,
-              ((point.x + next.x) / 2) * rect.width,
-              ((point.y + next.y) / 2) * rect.height,
-            )
-          } else {
-            context.lineTo(point.x * rect.width, point.y * rect.height)
+          context.arc(stroke.start.x * rect.width, stroke.start.y * rect.height, startRadius, 0, Math.PI * 2)
+          context.fill()
+          context.stroke()
+          context.fillStyle = '#2f7d65'
+          context.font = `800 ${Math.max(12, startRadius)}px sans-serif`
+          context.textAlign = 'center'
+          context.textBaseline = 'middle'
+          context.fillText(String(index + 1), stroke.start.x * rect.width, stroke.start.y * rect.height + 0.5)
+
+          const arrowFrom = pointAtProgress(stroke.guidePoints, 0.18)
+          const arrowTo = pointAtProgress(stroke.guidePoints, 0.28)
+          drawArrow(context, arrowFrom, arrowTo, rect.width, rect.height, helpLevel >= 1)
+
+          if (!reducedMotionRef.current && phase === 'writing') {
+            const elapsed = (time - animationStartRef.current) % 2200
+            const activeDuration = 1450
+            const progress = Math.min(1, elapsed / activeDuration)
+            if (elapsed <= activeDuration) {
+              const guidePoint = pointAtProgress(stroke.guidePoints, progress)
+              const glowRadius = helpLevel >= 1 ? 8 : 7
+              const gradient = context.createRadialGradient(
+                guidePoint.x * rect.width,
+                guidePoint.y * rect.height,
+                0,
+                guidePoint.x * rect.width,
+                guidePoint.y * rect.height,
+                glowRadius * 2,
+              )
+              gradient.addColorStop(0, 'rgba(255,255,255,1)')
+              gradient.addColorStop(0.35, 'rgba(255,210,85,.95)')
+              gradient.addColorStop(1, 'rgba(255,210,85,0)')
+              context.fillStyle = gradient
+              context.beginPath()
+              context.arc(guidePoint.x * rect.width, guidePoint.y * rect.height, glowRadius * 2, 0, Math.PI * 2)
+              context.fill()
+            }
           }
+          return
+        }
+        drawPolyline(context, stroke.guidePoints, rect.width, rect.height, {
+          color: '#dce5e0',
+          lineWidth: scaledWidth * 0.72,
+          alpha: 0.7,
+        })
+      })
+
+      if (activeStrokeRef.current.length > 1) {
+        drawPolyline(context, activeStrokeRef.current, rect.width, rect.height, {
+          color: '#234f42',
+          lineWidth: Math.max(6, rect.width * 0.018),
+        })
+      }
+
+      if (failedStroke && failedStroke.length > 1) {
+        drawPolyline(context, failedStroke, rect.width, rect.height, {
+          color: '#e6a15d',
+          lineWidth: Math.max(6, rect.width * 0.018),
+          alpha: 0.72,
+        })
+      }
+
+      if (phase === 'stroke-success' || phase === 'character-complete') {
+        const completedIndex = Math.min(character.strokes.length - 1, Math.max(0, completedStrokeCount - 1))
+        const anchor = character.strokes[completedIndex]?.end ?? { x: 0.5, y: 0.5 }
+        context.save()
+        context.translate(anchor.x * rect.width, anchor.y * rect.height)
+        context.strokeStyle = '#f0b83f'
+        context.lineWidth = 2
+        for (let ray = 0; ray < 8; ray += 1) {
+          const angle = (Math.PI * 2 * ray) / 8
+          context.beginPath()
+          context.moveTo(Math.cos(angle) * 9, Math.sin(angle) * 9)
+          context.lineTo(Math.cos(angle) * 17, Math.sin(angle) * 17)
           context.stroke()
         }
-      })
-    }
-
-    const notify = () => onStrokeChange?.(strokesRef.current.length)
-
-    useImperativeHandle(ref, () => ({
-      getStrokes: () => cloneStrokes(strokesRef.current),
-      setStrokes: (strokes: PracticeStroke[]) => {
-        strokesRef.current = cloneStrokes(strokes)
-        draw()
-        notify()
-      },
-      undo: () => {
-        strokesRef.current = strokesRef.current.slice(0, -1)
-        draw()
-        notify()
-      },
-      clear: () => {
-        strokesRef.current = []
-        draw()
-        notify()
-      },
-    }))
-
-    useEffect(() => {
-      draw()
-    }, [displayMode, item])
-
-    useEffect(() => {
-      const canvas = canvasRef.current
-      if (!canvas) return undefined
-      resizeObserverRef.current = new ResizeObserver(draw)
-      resizeObserverRef.current.observe(canvas)
-      window.addEventListener('orientationchange', draw)
-      return () => {
-        resizeObserverRef.current?.disconnect()
-        window.removeEventListener('orientationchange', draw)
-      }
-    }, [])
-
-    const toPoint = (event: ReactPointerEvent<HTMLCanvasElement>) => {
-      const rect = event.currentTarget.getBoundingClientRect()
-      return {
-        x: Math.min(1, Math.max(0, (event.clientX - rect.left) / Math.max(1, rect.width))),
-        y: Math.min(1, Math.max(0, (event.clientY - rect.top) / Math.max(1, rect.height))),
-        pressure: event.pressure > 0 ? event.pressure : 0.5,
-        time: performance.now(),
+        context.restore()
       }
     }
 
-    const handlePointerDown = (event: ReactPointerEvent<HTMLCanvasElement>) => {
-      event.preventDefault()
-      if (activePointerRef.current !== null) return
-      activePointerRef.current = event.pointerId
-      event.currentTarget.setPointerCapture(event.pointerId)
-      strokesRef.current.push({ points: [toPoint(event)] })
-      draw()
-      notify()
+    const animate = (time: number) => {
+      draw(time)
+      frameRef.current = requestAnimationFrame(animate)
     }
-
-    const handlePointerMove = (event: ReactPointerEvent<HTMLCanvasElement>) => {
-      if (activePointerRef.current !== event.pointerId) return
-      event.preventDefault()
-      const stroke = strokesRef.current[strokesRef.current.length - 1]
-      const point = toPoint(event)
-      const previous = stroke.points[stroke.points.length - 1]
-      if (Math.hypot(point.x - previous.x, point.y - previous.y) < 0.0015) return
-      stroke.points.push(point)
-      draw()
+    frameRef.current = requestAnimationFrame(animate)
+    const observer = new ResizeObserver(() => draw())
+    observer.observe(canvas)
+    const handleOrientation = () => window.setTimeout(() => draw(), 80)
+    window.addEventListener('orientationchange', handleOrientation)
+    return () => {
+      if (frameRef.current !== null) cancelAnimationFrame(frameRef.current)
+      observer.disconnect()
+      window.removeEventListener('orientationchange', handleOrientation)
     }
+  }, [character, currentStrokeIndex, completedStrokeCount, retryCount, guideReplayKey, phase, failedStroke])
 
-    const finishPointer = (event: ReactPointerEvent<HTMLCanvasElement>) => {
-      if (activePointerRef.current !== event.pointerId) return
-      event.preventDefault()
-      activePointerRef.current = null
-      if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
-      draw()
-      notify()
+  const handlePointerDown = (event: ReactPointerEvent<HTMLCanvasElement>) => {
+    if (phase !== 'writing') return
+    const canvas = event.currentTarget
+    event.preventDefault()
+    onInteractionStart()
+    activePointerRef.current = event.pointerId
+    activeStrokeRef.current = [normalizePoint(event, canvas)]
+    canvas.setPointerCapture?.(event.pointerId)
+  }
+
+  const handlePointerMove = (event: ReactPointerEvent<HTMLCanvasElement>) => {
+    if (activePointerRef.current !== event.pointerId || phase !== 'writing') return
+    event.preventDefault()
+    const next = normalizePoint(event, event.currentTarget)
+    const previous = activeStrokeRef.current[activeStrokeRef.current.length - 1]
+    if (!previous || Math.hypot(next.x - previous.x, next.y - previous.y) >= 0.003) {
+      activeStrokeRef.current.push(next)
     }
+  }
 
-    return (
-      <canvas
-        ref={canvasRef}
-        className="practice-canvas"
-        aria-label={`${item} 글자를 손가락, 펜 또는 마우스로 따라 쓰는 연습 칸`}
-        role="img"
-        tabIndex={0}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={finishPointer}
-        onPointerCancel={finishPointer}
-        onContextMenu={(event: ReactMouseEvent<HTMLCanvasElement>) => event.preventDefault()}
-      />
-    )
-  },
-)
+  const finishPointer = (event: ReactPointerEvent<HTMLCanvasElement>) => {
+    if (activePointerRef.current !== event.pointerId) return
+    event.preventDefault()
+    const canvas = event.currentTarget
+    const finalPoint = normalizePoint(event, canvas)
+    const points = [...activeStrokeRef.current]
+    const previous = points[points.length - 1]
+    if (!previous || Math.hypot(finalPoint.x - previous.x, finalPoint.y - previous.y) >= 0.002) points.push(finalPoint)
+    activePointerRef.current = null
+    activeStrokeRef.current = []
+    canvas.releasePointerCapture?.(event.pointerId)
+    onStrokeEnd(points)
+  }
 
-PracticeCanvas.displayName = 'PracticeCanvas'
-export default PracticeCanvas
+  const currentStroke = character.strokes[currentStrokeIndex]
+  return (
+    <canvas
+      ref={canvasRef}
+      className={`stroke-practice-canvas phase-${phase}`}
+      aria-label={`${character.character} 글자 ${currentStrokeIndex + 1}번째 획, 전체 ${character.strokes.length}획. 시작점에서 화살표 방향으로 따라 쓰세요.`}
+      role="img"
+      tabIndex={0}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={finishPointer}
+      onPointerCancel={(event: ReactPointerEvent<HTMLCanvasElement>) => {
+        if (activePointerRef.current === event.pointerId) {
+          activePointerRef.current = null
+          activeStrokeRef.current = []
+        }
+      }}
+      onContextMenu={(event: { preventDefault(): void }) => event.preventDefault()}
+      data-current-stroke-id={currentStroke?.id}
+    />
+  )
+}
