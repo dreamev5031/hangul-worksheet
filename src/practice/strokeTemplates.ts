@@ -1,7 +1,7 @@
 import type { PracticePoint, StrokePath, StrokePathKind } from './types'
 import { resamplePolyline, transformStroke } from './strokePath'
 
-const DEFAULT_THICKNESS = 0.08
+const DEFAULT_THICKNESS = 0.078
 const DEFAULT_TOLERANCE = 0.105
 
 function makeStroke(
@@ -22,7 +22,7 @@ function makeStroke(
   return {
     id,
     points,
-    guidePoints: resamplePolyline(points, 64),
+    guidePoints: resamplePolyline(points, options.closed ? 96 : 64),
     waypoints,
     start,
     end,
@@ -38,7 +38,7 @@ function makeStroke(
 
 function circleStroke(id: string, centerX = 0.5, centerY = 0.5, radius = 0.34): StrokePath {
   const points: Array<[number, number]> = []
-  const segments = 36
+  const segments = 72
   for (let index = 0; index <= segments; index += 1) {
     const angle = -Math.PI / 2 + (index / segments) * Math.PI * 2
     points.push([centerX + Math.cos(angle) * radius, centerY + Math.sin(angle) * radius])
@@ -53,18 +53,18 @@ function circleStroke(id: string, centerX = 0.5, centerY = 0.5, radius = 0.34): 
 }
 
 const consonantTemplates: Record<string, StrokePath[]> = {
-  'ㄱ': [makeStroke('g-1', [[0.14, 0.16], [0.86, 0.16], [0.86, 0.86]])],
-  'ㄴ': [makeStroke('n-1', [[0.16, 0.14], [0.16, 0.84], [0.86, 0.84]])],
+  'ㄱ': [makeStroke('g-1', [[0.13, 0.15], [0.86, 0.15], [0.86, 0.86]])],
+  'ㄴ': [makeStroke('n-1', [[0.15, 0.13], [0.15, 0.85], [0.86, 0.85]])],
   'ㄷ': [
-    makeStroke('d-1', [[0.14, 0.16], [0.86, 0.16]]),
-    makeStroke('d-2', [[0.14, 0.16], [0.14, 0.84], [0.86, 0.84]]),
+    makeStroke('d-1', [[0.13, 0.15], [0.87, 0.15]]),
+    makeStroke('d-2', [[0.13, 0.15], [0.13, 0.85], [0.87, 0.85]]),
   ],
   'ㄹ': [
-    makeStroke('r-1', [[0.14, 0.14], [0.86, 0.14]]),
-    makeStroke('r-2', [[0.14, 0.14], [0.14, 0.5]]),
-    makeStroke('r-3', [[0.14, 0.5], [0.82, 0.5]]),
-    makeStroke('r-4', [[0.82, 0.5], [0.82, 0.86]]),
-    makeStroke('r-5', [[0.14, 0.86], [0.82, 0.86]]),
+    makeStroke('r-1', [[0.13, 0.14], [0.87, 0.14]]),
+    makeStroke('r-2', [[0.13, 0.14], [0.13, 0.49]]),
+    makeStroke('r-3', [[0.13, 0.49], [0.84, 0.49]]),
+    makeStroke('r-4', [[0.84, 0.49], [0.84, 0.86]]),
+    makeStroke('r-5', [[0.13, 0.86], [0.84, 0.86]]),
   ],
   'ㅁ': [
     makeStroke('m-1', [[0.14, 0.14], [0.14, 0.86]]),
@@ -74,83 +74,83 @@ const consonantTemplates: Record<string, StrokePath[]> = {
   'ㅂ': [
     makeStroke('b-1', [[0.16, 0.12], [0.16, 0.88]]),
     makeStroke('b-2', [[0.84, 0.12], [0.84, 0.88]]),
-    makeStroke('b-3', [[0.16, 0.34], [0.84, 0.34]]),
-    makeStroke('b-4', [[0.16, 0.68], [0.84, 0.68]]),
+    makeStroke('b-3', [[0.16, 0.36], [0.84, 0.36]]),
+    makeStroke('b-4', [[0.16, 0.66], [0.84, 0.66]]),
   ],
   'ㅅ': [
-    makeStroke('s-1', [[0.5, 0.14], [0.12, 0.86]]),
-    makeStroke('s-2', [[0.5, 0.14], [0.88, 0.86]]),
+    makeStroke('s-1', [[0.5, 0.12], [0.14, 0.86]]),
+    makeStroke('s-2', [[0.5, 0.12], [0.86, 0.86]]),
   ],
-  'ㅇ': [circleStroke('ng-1')],
+  'ㅇ': [circleStroke('ng-1', 0.5, 0.5, 0.35)],
   'ㅈ': [
-    makeStroke('j-1', [[0.12, 0.16], [0.88, 0.16]]),
-    makeStroke('j-2', [[0.5, 0.22], [0.14, 0.86]]),
-    makeStroke('j-3', [[0.5, 0.22], [0.86, 0.86]]),
+    makeStroke('j-1', [[0.13, 0.15], [0.87, 0.15]]),
+    makeStroke('j-2', [[0.5, 0.23], [0.15, 0.86]]),
+    makeStroke('j-3', [[0.5, 0.23], [0.85, 0.86]]),
   ],
   'ㅊ': [
-    makeStroke('ch-1', [[0.34, 0.08], [0.66, 0.08]]),
-    makeStroke('ch-2', [[0.12, 0.28], [0.88, 0.28]]),
-    makeStroke('ch-3', [[0.5, 0.34], [0.14, 0.88]]),
-    makeStroke('ch-4', [[0.5, 0.34], [0.86, 0.88]]),
+    makeStroke('ch-1', [[0.35, 0.08], [0.65, 0.08]]),
+    makeStroke('ch-2', [[0.13, 0.28], [0.87, 0.28]]),
+    makeStroke('ch-3', [[0.5, 0.35], [0.15, 0.88]]),
+    makeStroke('ch-4', [[0.5, 0.35], [0.85, 0.88]]),
   ],
   'ㅋ': [
-    makeStroke('k-1', [[0.14, 0.16], [0.86, 0.16], [0.86, 0.86]]),
-    makeStroke('k-2', [[0.42, 0.52], [0.86, 0.52]]),
+    makeStroke('k-1', [[0.13, 0.15], [0.86, 0.15], [0.86, 0.86]]),
+    makeStroke('k-2', [[0.4, 0.51], [0.86, 0.51]]),
   ],
   'ㅌ': [
-    makeStroke('t-1', [[0.14, 0.14], [0.86, 0.14]]),
-    makeStroke('t-2', [[0.14, 0.48], [0.86, 0.48]]),
-    makeStroke('t-3', [[0.14, 0.14], [0.14, 0.86], [0.86, 0.86]]),
+    makeStroke('t-1', [[0.13, 0.14], [0.87, 0.14]]),
+    makeStroke('t-2', [[0.13, 0.48], [0.87, 0.48]]),
+    makeStroke('t-3', [[0.13, 0.14], [0.13, 0.86], [0.87, 0.86]]),
   ],
   'ㅍ': [
-    makeStroke('p-1', [[0.12, 0.3], [0.88, 0.3]]),
-    makeStroke('p-2', [[0.12, 0.7], [0.88, 0.7]]),
-    makeStroke('p-3', [[0.3, 0.12], [0.3, 0.88]]),
-    makeStroke('p-4', [[0.7, 0.12], [0.7, 0.88]]),
+    makeStroke('p-1', [[0.12, 0.31], [0.88, 0.31]]),
+    makeStroke('p-2', [[0.12, 0.69], [0.88, 0.69]]),
+    makeStroke('p-3', [[0.31, 0.12], [0.31, 0.88]]),
+    makeStroke('p-4', [[0.69, 0.12], [0.69, 0.88]]),
   ],
   'ㅎ': [
-    makeStroke('h-1', [[0.34, 0.08], [0.66, 0.08]]),
-    makeStroke('h-2', [[0.14, 0.3], [0.86, 0.3]]),
+    makeStroke('h-1', [[0.35, 0.08], [0.65, 0.08]]),
+    makeStroke('h-2', [[0.15, 0.29], [0.85, 0.29]]),
     circleStroke('h-3', 0.5, 0.68, 0.25),
   ],
 }
 
 const vowelTemplates: Record<string, StrokePath[]> = {
   'ㅏ': [
-    makeStroke('a-1', [[0.28, 0.1], [0.28, 0.9]]),
-    makeStroke('a-2', [[0.28, 0.5], [0.84, 0.5]]),
+    makeStroke('a-1', [[0.3, 0.09], [0.3, 0.91]]),
+    makeStroke('a-2', [[0.3, 0.5], [0.82, 0.5]]),
   ],
   'ㅑ': [
-    makeStroke('ya-1', [[0.26, 0.08], [0.26, 0.92]]),
-    makeStroke('ya-2', [[0.26, 0.38], [0.82, 0.38]]),
-    makeStroke('ya-3', [[0.26, 0.64], [0.82, 0.64]]),
+    makeStroke('ya-1', [[0.29, 0.08], [0.29, 0.92]]),
+    makeStroke('ya-2', [[0.29, 0.39], [0.81, 0.39]]),
+    makeStroke('ya-3', [[0.29, 0.63], [0.81, 0.63]]),
   ],
   'ㅓ': [
-    makeStroke('eo-1', [[0.72, 0.1], [0.72, 0.9]]),
-    makeStroke('eo-2', [[0.16, 0.5], [0.72, 0.5]]),
+    makeStroke('eo-1', [[0.7, 0.09], [0.7, 0.91]]),
+    makeStroke('eo-2', [[0.18, 0.5], [0.7, 0.5]]),
   ],
   'ㅕ': [
-    makeStroke('yeo-1', [[0.74, 0.08], [0.74, 0.92]]),
-    makeStroke('yeo-2', [[0.18, 0.38], [0.74, 0.38]]),
-    makeStroke('yeo-3', [[0.18, 0.64], [0.74, 0.64]]),
+    makeStroke('yeo-1', [[0.71, 0.08], [0.71, 0.92]]),
+    makeStroke('yeo-2', [[0.19, 0.39], [0.71, 0.39]]),
+    makeStroke('yeo-3', [[0.19, 0.63], [0.71, 0.63]]),
   ],
   'ㅗ': [
-    makeStroke('o-1', [[0.1, 0.68], [0.9, 0.68]]),
-    makeStroke('o-2', [[0.5, 0.68], [0.5, 0.14]]),
+    makeStroke('o-1', [[0.09, 0.68], [0.91, 0.68]]),
+    makeStroke('o-2', [[0.5, 0.68], [0.5, 0.17]]),
   ],
   'ㅛ': [
-    makeStroke('yo-1', [[0.08, 0.7], [0.92, 0.7]]),
-    makeStroke('yo-2', [[0.36, 0.7], [0.36, 0.16]]),
-    makeStroke('yo-3', [[0.64, 0.7], [0.64, 0.16]]),
+    makeStroke('yo-1', [[0.08, 0.69], [0.92, 0.69]]),
+    makeStroke('yo-2', [[0.36, 0.69], [0.36, 0.18]]),
+    makeStroke('yo-3', [[0.64, 0.69], [0.64, 0.18]]),
   ],
   'ㅜ': [
     makeStroke('u-1', [[0.08, 0.32], [0.92, 0.32]]),
-    makeStroke('u-2', [[0.5, 0.32], [0.5, 0.86]]),
+    makeStroke('u-2', [[0.5, 0.32], [0.5, 0.83]]),
   ],
   'ㅠ': [
-    makeStroke('yu-1', [[0.08, 0.3], [0.92, 0.3]]),
-    makeStroke('yu-2', [[0.36, 0.3], [0.36, 0.84]]),
-    makeStroke('yu-3', [[0.64, 0.3], [0.64, 0.84]]),
+    makeStroke('yu-1', [[0.08, 0.31], [0.92, 0.31]]),
+    makeStroke('yu-2', [[0.36, 0.31], [0.36, 0.82]]),
+    makeStroke('yu-3', [[0.64, 0.31], [0.64, 0.82]]),
   ],
   'ㅡ': [makeStroke('eu-1', [[0.08, 0.5], [0.92, 0.5]])],
   'ㅣ': [makeStroke('i-1', [[0.5, 0.08], [0.5, 0.92]])],
@@ -170,8 +170,8 @@ function cloneStrokes(strokes: StrokePath[], prefix: string): StrokePath[] {
 
 function combineSideBySide(left: StrokePath[], right: StrokePath[], prefix: string): StrokePath[] {
   return [
-    ...left.map((stroke) => transformStroke(stroke, { x: 0.04, y: 0.04, width: 0.43, height: 0.92 }, `${prefix}l-`)),
-    ...right.map((stroke) => transformStroke(stroke, { x: 0.53, y: 0.04, width: 0.43, height: 0.92 }, `${prefix}r-`)),
+    ...left.map((stroke) => transformStroke(stroke, { x: 0.05, y: 0.06, width: 0.4, height: 0.88 }, `${prefix}l-`)),
+    ...right.map((stroke) => transformStroke(stroke, { x: 0.55, y: 0.06, width: 0.4, height: 0.88 }, `${prefix}r-`)),
   ]
 }
 
@@ -189,7 +189,7 @@ consonantTemplates['ㅉ'] = getDoubleConsonant('ㅈ', 'jj-')
 function composeVerticalVowel(base: 'ㅏ' | 'ㅓ', extraX: number, prefix: string): StrokePath[] {
   return [
     ...cloneStrokes(vowelTemplates[base], `${prefix}base-`),
-    makeStroke(`${prefix}extra-1`, [[extraX, 0.1], [extraX, 0.9]]),
+    makeStroke(`${prefix}extra-1`, [[extraX, 0.09], [extraX, 0.91]]),
   ]
 }
 
@@ -198,7 +198,7 @@ vowelTemplates['ㅔ'] = composeVerticalVowel('ㅓ', 0.88, 'e-')
 vowelTemplates['ㅒ'] = [...cloneStrokes(vowelTemplates['ㅑ'], 'yae-base-'), makeStroke('yae-extra-1', [[0.84, 0.08], [0.84, 0.92]])]
 vowelTemplates['ㅖ'] = [...cloneStrokes(vowelTemplates['ㅕ'], 'ye-base-'), makeStroke('ye-extra-1', [[0.9, 0.08], [0.9, 0.92]])]
 
-export const COMPLEX_VOWEL_COMPONENTS: Record<string, string[]> = {
+export const COMPLEX_VOWEL_COMPONENTS: Record<string, [string, string]> = {
   'ㅘ': ['ㅗ', 'ㅏ'],
   'ㅙ': ['ㅗ', 'ㅐ'],
   'ㅚ': ['ㅗ', 'ㅣ'],
@@ -239,14 +239,14 @@ export function getSimpleJamoTemplate(jamo: string): StrokePath[] {
     const verticalStrokes = getSimpleJamoTemplate(vertical)
     if (jamo === 'ㅢ') {
       return [
-        ...horizontalStrokes.map((stroke) => transformStroke(stroke, { x: 0.04, y: 0.5, width: 0.68, height: 0.34 }, `${jamo}-h-`)),
-        ...verticalStrokes.map((stroke) => transformStroke(stroke, { x: 0.72, y: 0.06, width: 0.22, height: 0.84 }, `${jamo}-v-`)),
+        ...horizontalStrokes.map((stroke) => transformStroke(stroke, { x: 0.05, y: 0.5, width: 0.65, height: 0.28 }, `${jamo}-h-`)),
+        ...verticalStrokes.map((stroke) => transformStroke(stroke, { x: 0.72, y: 0.08, width: 0.2, height: 0.8 }, `${jamo}-v-`)),
       ]
     }
     const isTop = ['ㅘ', 'ㅙ', 'ㅚ'].includes(jamo)
     return [
-      ...horizontalStrokes.map((stroke) => transformStroke(stroke, { x: 0.04, y: isTop ? 0.46 : 0.38, width: 0.9, height: 0.48 }, `${jamo}-h-`)),
-      ...verticalStrokes.map((stroke) => transformStroke(stroke, { x: 0.52, y: 0.04, width: 0.42, height: 0.54 }, `${jamo}-v-`)),
+      ...horizontalStrokes.map((stroke) => transformStroke(stroke, { x: 0.05, y: isTop ? 0.43 : 0.31, width: 0.88, height: 0.44 }, `${jamo}-h-`)),
+      ...verticalStrokes.map((stroke) => transformStroke(stroke, { x: 0.52, y: 0.06, width: 0.4, height: 0.52 }, `${jamo}-v-`)),
     ]
   }
   return []
