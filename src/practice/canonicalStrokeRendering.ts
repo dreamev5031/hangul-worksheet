@@ -1,6 +1,6 @@
 import type { GeneratedCharacter, StrokePath } from './types'
 
-export const CANONICAL_STROKE_RENDERING_MARKER = 'canonical-stroke-rendering-v2'
+export const CANONICAL_STROKE_RENDERING_MARKER = 'canonical-stroke-rendering-v3-optical-fit'
 
 export interface CanonicalStrokeLayers {
   background: StrokePath[]
@@ -37,14 +37,14 @@ export function getCanonicalStrokeLayers(
 }
 
 export function getCanonicalStrokeVisualMetrics(side: number, stroke: StrokePath): CanonicalStrokeVisualMetrics {
-  const scaledWidth = clamp(stroke.thickness * side, 4.5, 17)
+  const scaledWidth = clamp(stroke.thickness * side, 4.2, 15)
   return {
-    backgroundWidth: clamp(scaledWidth * 0.72, 3.5, 11),
-    completedWidth: clamp(scaledWidth * 1.02, 5, 18),
-    currentWidth: clamp(scaledWidth * 0.88, 4.5, 16),
-    userWidth: clamp(side * 0.017, 6, 15),
-    startRadius: clamp(side * 0.017, 8, 14),
-    glowRadius: clamp(side * 0.011, 6, 10),
-    dash: [clamp(side * 0.008, 4, 8), clamp(side * 0.012, 6, 12)],
+    backgroundWidth: clamp(scaledWidth * 0.58, 3.2, 9),
+    completedWidth: clamp(scaledWidth * 0.98, 5, 15),
+    currentWidth: clamp(scaledWidth * 0.82, 4.4, 14),
+    userWidth: clamp(side * 0.016, 6, 14),
+    startRadius: clamp(side * 0.016, 8, 13),
+    glowRadius: clamp(side * 0.01, 6, 9.5),
+    dash: [clamp(side * 0.007, 4, 7), clamp(side * 0.01, 6, 10)],
   }
 }
