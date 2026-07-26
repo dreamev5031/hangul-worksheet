@@ -133,6 +133,9 @@ test('대표 글자의 모든 canonical 획은 캔버스 안에 있고 자모 �
       assert.ok(bounds.final.y > Math.max(bounds.initial.y + bounds.initial.height, bounds.medial.y + bounds.medial.height), `${sample} 받침 위치 오류`)
     }
   }
+
+  const bamBounds = getGeneratedComponentBounds(generateCharacterStrokes('밤')).final
+  assert.ok(bamBounds.width / bamBounds.height <= 1.15, `밤 받침 ㅁ이 가로로 퍼짐: ${bamBounds.width / bamBounds.height}`)
 })
 
 test('휴대폰 가로 화면은 높이를 최대한 쓰는 압축 2열 레이아웃이다', () => {
