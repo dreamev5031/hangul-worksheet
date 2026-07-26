@@ -1,6 +1,10 @@
 import { useEffect, useRef } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
-import { DISPLAY_GLYPH_LAYER_MARKER, drawDisplayGlyph } from '../practice/displayGlyphs'
+import {
+  CANONICAL_STROKE_RENDERING_MARKER,
+  getCanonicalStrokeLayers,
+  getCanonicalStrokeVisualMetrics,
+} from '../practice/canonicalStrokeRendering'
 import { pointAtProgress } from '../practice/strokePath'
 import type { GeneratedCharacter, PracticePoint } from '../practice/types'
 
@@ -137,92 +141,95 @@ export default function PracticeCanvas({
       context.stroke()
       context.setLineDash([])
 
-      // 완성 글자 모양은 정자체 글꼴 기반 표시 레이어로 그립니다.
-      // 아래 획순 polyline은 안내와 판정에만 사용하므로 두 데이터가 서로 독립적입니다.
-      drawDisplayGlyph(context, character.character, rect.width, rect.height, { color: '#a9c4ba', alpha: 0.18 })
-
       const side = Math.min(rect.width, rect.height)
-      character.strokes.forEach((stroke, index) => {
-        const scaledWidth = clamp(stroke.thickness * side, 4.5, 17)
-        if (index < completedStrokeCount) {
-          drawPolyline(context, stroke.guidePoints, rect.width, rect.height, {
-            color: '#2f7d65',
-            lineWidth: clamp(scaledWidth * 1.02, 5, 18),
-          })
-          return
-        }
-        if (index === currentStrokeIndex) {
-          const helpLevel = retryCount >= 3 ? 2 : retryCount >= 2 ? 1 : 0
-          const dashOn = clamp(side * 0.008, 4, 8)
-          const dashOff = clamp(side * 0.012, 6, 12)
-          drawPolyline(context, stroke.guidePoints, rect.width, rect.height, {
-            color: helpLevel >= 2 ? '#65b597' : '#8bc9b2',
-            lineWidth: clamp(scaledWidth * (helpLevel >= 2 ? 1.02 : 0.84), 4.5, 16),
-            dash: reducedMotionRef.current ? undefined : [dashOn, dashOff],
-            alpha: 0.94,
-          })
-          const startRadius = clamp(side * 0.017 + helpLevel * 1.25, 8, 14)
-          context.fillStyle = '#fffefb'
-          context.strokeStyle = '#2f7d65'
-          context.lineWidth = clamp(side * 0.004, 2, 3.5)
-          context.beginPath()
-          context.arc(stroke.start.x * rect.width, stroke.start.y * rect.height, startRadius, 0, Math.PI * 2)
-          context.fill()
-          context.stroke()
-          context.fillStyle = '#2f7d65'
-          context.font = `800 ${clamp(startRadius, 11, 14)}px sans-serif`
-          context.textAlign = 'center'
-          context.textBaseline = 'middle'
-          context.fillText(String(index + 1), stroke.start.x * rect.width, stroke.start.y * rect.height + 0.5)
+      const layers = getCanonicalStrokeLayers(character, currentStrokeIndex, completedStrokeCount)
 
-          const arrowFrom = pointAtProgress(stroke.guidePoints, 0.18)
-          const arrowTo = pointAtProgress(stroke.guidePoints, 0.28)
-          drawArrow(context, arrowFrom, arrowTo, rect.width, rect.height, helpLevel >= 1)
-
-          if (!reducedMotionRef.current && phase === 'writing') {
-            const elapsed = (time - animationStartRef.current) % 2200
-            const activeDuration = 1450
-            const progress = Math.min(1, elapsed / activeDuration)
-            if (elapsed <= activeDuration) {
-              const guidePoint = pointAtProgress(stroke.guidePoints, progress)
-              const glowRadius = clamp(side * 0.011 + (helpLevel >= 1 ? 1 : 0), 6, 10)
-              const gradient = context.createRadialGradient(
-                guidePoint.x * rect.width,
-                guidePoint.y * rect.height,
-                0,
-                guidePoint.x * rect.width,
-                guidePoint.y * rect.height,
-                glowRadius * 2,
-              )
-              gradient.addColorStop(0, 'rgba(255,255,255,1)')
-              gradient.addColorStop(0.35, 'rgba(255,210,85,.95)')
-              gradient.addColorStop(1, 'rgba(255,210,85,0)')
-              context.fillStyle = gradient
-              context.beginPath()
-              context.arc(guidePoint.x * rect.width, guidePoint.y * rect.height, glowRadius * 2, 0, Math.PI * 2)
-              context.fill()
-            }
-          }
-          return
-        }
+      // 배경 완성 글자, 완료 획, 현재 획, 안내와 판정이 모두 같은 StrokePath 객체를 사용합니다.
+      layers.background.forEach((stroke) => {
+        const visual = getCanonicalStrokeVisualMetrics(side, stroke)
         drawPolyline(context, stroke.guidePoints, rect.width, rect.height, {
-          color: '#bad0c7',
-          lineWidth: clamp(scaledWidth * 0.5, 3.5, 9),
-          alpha: 0.24,
+          color: '#b9d1c7',
+          lineWidth: visual.backgroundWidth,
+          alpha: 0.34,
         })
       })
 
+      layers.completed.forEach((stroke) => {
+        const visual = getCanonicalStrokeVisualMetrics(side, stroke)
+        drawPolyline(context, stroke.guidePoints, rect.width, rect.height, {
+          color: '#2f7d65',
+          lineWidth: visual.completedWidth,
+        })
+      })
+
+      const currentStroke = layers.current
+      if (currentStroke) {
+        const helpLevel = retryCount >= 3 ? 2 : retryCount >= 2 ? 1 : 0
+        const visual = getCanonicalStrokeVisualMetrics(side, currentStroke)
+        drawPolyline(context, currentStroke.guidePoints, rect.width, rect.height, {
+          color: helpLevel >= 2 ? '#65b597' : '#79bea4',
+          lineWidth: clamp(visual.currentWidth * (helpLevel >= 2 ? 1.08 : 1), 4.5, 17),
+          dash: reducedMotionRef.current ? undefined : visual.dash,
+          alpha: 0.96,
+        })
+
+        const startRadius = clamp(visual.startRadius + helpLevel * 1.25, 8, 15)
+        context.fillStyle = '#fffefb'
+        context.strokeStyle = '#2f7d65'
+        context.lineWidth = clamp(side * 0.004, 2, 3.5)
+        context.beginPath()
+        context.arc(currentStroke.start.x * rect.width, currentStroke.start.y * rect.height, startRadius, 0, Math.PI * 2)
+        context.fill()
+        context.stroke()
+        context.fillStyle = '#2f7d65'
+        context.font = `800 ${clamp(startRadius, 11, 14)}px sans-serif`
+        context.textAlign = 'center'
+        context.textBaseline = 'middle'
+        context.fillText(String(currentStrokeIndex + 1), currentStroke.start.x * rect.width, currentStroke.start.y * rect.height + 0.5)
+
+        const arrowFrom = pointAtProgress(currentStroke.guidePoints, 0.18)
+        const arrowTo = pointAtProgress(currentStroke.guidePoints, 0.28)
+        drawArrow(context, arrowFrom, arrowTo, rect.width, rect.height, helpLevel >= 1)
+
+        if (!reducedMotionRef.current && phase === 'writing') {
+          const elapsed = (time - animationStartRef.current) % 2200
+          const activeDuration = 1450
+          const progress = Math.min(1, elapsed / activeDuration)
+          if (elapsed <= activeDuration) {
+            const guidePoint = pointAtProgress(currentStroke.guidePoints, progress)
+            const glowRadius = clamp(visual.glowRadius + (helpLevel >= 1 ? 1 : 0), 6, 11)
+            const gradient = context.createRadialGradient(
+              guidePoint.x * rect.width,
+              guidePoint.y * rect.height,
+              0,
+              guidePoint.x * rect.width,
+              guidePoint.y * rect.height,
+              glowRadius * 2,
+            )
+            gradient.addColorStop(0, 'rgba(255,255,255,1)')
+            gradient.addColorStop(0.35, 'rgba(255,210,85,.95)')
+            gradient.addColorStop(1, 'rgba(255,210,85,0)')
+            context.fillStyle = gradient
+            context.beginPath()
+            context.arc(guidePoint.x * rect.width, guidePoint.y * rect.height, glowRadius * 2, 0, Math.PI * 2)
+            context.fill()
+          }
+        }
+      }
+
       if (activeStrokeRef.current.length > 1) {
+        const visual = currentStroke ? getCanonicalStrokeVisualMetrics(side, currentStroke) : null
         drawPolyline(context, activeStrokeRef.current, rect.width, rect.height, {
           color: '#234f42',
-          lineWidth: clamp(side * 0.017, 6, 15),
+          lineWidth: visual?.userWidth ?? clamp(side * 0.017, 6, 15),
         })
       }
 
       if (failedStroke && failedStroke.length > 1) {
+        const visual = currentStroke ? getCanonicalStrokeVisualMetrics(side, currentStroke) : null
         drawPolyline(context, failedStroke, rect.width, rect.height, {
           color: '#e6a15d',
-          lineWidth: clamp(side * 0.017, 6, 15),
+          lineWidth: visual?.userWidth ?? clamp(side * 0.017, 6, 15),
           alpha: 0.7,
         })
       }
@@ -316,7 +323,8 @@ export default function PracticeCanvas({
       }}
       onContextMenu={(event: { preventDefault(): void }) => event.preventDefault()}
       data-current-stroke-id={currentStroke?.id}
-      data-display-glyph-layer={DISPLAY_GLYPH_LAYER_MARKER}
+      data-canonical-stroke-source={CANONICAL_STROKE_RENDERING_MARKER}
+      data-canonical-stroke-count={character.strokes.length}
     />
   )
 }
