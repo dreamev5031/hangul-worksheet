@@ -7,6 +7,18 @@ export interface RectTransform {
   height: number
 }
 
+export interface StrokeGeometryTransform {
+  originX: number
+  originY: number
+  scaleX: number
+  scaleY: number
+  translateX?: number
+  translateY?: number
+  thicknessScale?: number
+  toleranceScale?: number
+  clamp?: boolean
+}
+
 export function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value))
 }
@@ -30,13 +42,19 @@ function getStrokeTransform(stroke: StrokePath, transform: RectTransform): RectT
   }
 }
 
-export function transformStroke(stroke: StrokePath, transform: RectTransform, idPrefix = ''): StrokePath {
-  const effectiveTransform = getStrokeTransform(stroke, transform)
-  const points = stroke.points.map((point) => transformPoint(point, effectiveTransform))
-  const directionTarget = stroke.closed && points.length > 2 ? points[Math.max(1, Math.floor(points.length * 0.2))] : points[points.length - 1]
+function getDirection(points: PracticePoint[], closed: boolean): { dx: number; dy: number } {
+  const directionTarget = closed && points.length > 2
+    ? points[Math.max(1, Math.floor(points.length * 0.2))]
+    : points[points.length - 1]
   const dx = directionTarget.x - points[0].x
   const dy = directionTarget.y - points[0].y
   const magnitude = Math.hypot(dx, dy) || 1
+  return { dx: dx / magnitude, dy: dy / magnitude }
+}
+
+export function transformStroke(stroke: StrokePath, transform: RectTransform, idPrefix = ''): StrokePath {
+  const effectiveTransform = getStrokeTransform(stroke, transform)
+  const points = stroke.points.map((point) => transformPoint(point, effectiveTransform))
   const guidePoints = stroke.guidePoints.map((point) => transformPoint(point, effectiveTransform))
   const waypoints = stroke.waypoints.map((point) => transformPoint(point, effectiveTransform))
   return {
@@ -47,9 +65,45 @@ export function transformStroke(stroke: StrokePath, transform: RectTransform, id
     waypoints,
     start: points[0],
     end: points[points.length - 1],
-    direction: { dx: dx / magnitude, dy: dy / magnitude },
+    direction: getDirection(points, stroke.closed),
     thickness: stroke.thickness * Math.min(effectiveTransform.width, effectiveTransform.height),
     tolerance: stroke.tolerance * Math.max(effectiveTransform.width, effectiveTransform.height),
+  }
+}
+
+export function transformStrokeGeometry(
+  stroke: StrokePath,
+  transform: StrokeGeometryTransform,
+  idPrefix = '',
+): StrokePath {
+  const translateX = transform.translateX ?? 0
+  const translateY = transform.translateY ?? 0
+  const shouldClamp = transform.clamp ?? true
+  const mapPoint = (point: PracticePoint): PracticePoint => {
+    const x = transform.originX + (point.x - transform.originX) * transform.scaleX + translateX
+    const y = transform.originY + (point.y - transform.originY) * transform.scaleY + translateY
+    return {
+      ...point,
+      x: shouldClamp ? clamp01(x) : x,
+      y: shouldClamp ? clamp01(y) : y,
+    }
+  }
+  const points = stroke.points.map(mapPoint)
+  const guidePoints = stroke.guidePoints.map(mapPoint)
+  const waypoints = stroke.waypoints.map(mapPoint)
+  const defaultThicknessScale = Math.min(Math.abs(transform.scaleX), Math.abs(transform.scaleY))
+  const defaultToleranceScale = Math.max(Math.abs(transform.scaleX), Math.abs(transform.scaleY))
+  return {
+    ...stroke,
+    id: `${idPrefix}${stroke.id}`,
+    points,
+    guidePoints,
+    waypoints,
+    start: points[0],
+    end: points[points.length - 1],
+    direction: getDirection(points, stroke.closed),
+    thickness: stroke.thickness * (transform.thicknessScale ?? defaultThicknessScale),
+    tolerance: stroke.tolerance * (transform.toleranceScale ?? defaultToleranceScale),
   }
 }
 
