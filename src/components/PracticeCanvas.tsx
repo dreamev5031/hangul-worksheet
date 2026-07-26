@@ -144,13 +144,13 @@ export default function PracticeCanvas({
       const side = Math.min(rect.width, rect.height)
       const layers = getCanonicalStrokeLayers(character, currentStrokeIndex, completedStrokeCount)
 
-      // 배경 완성 글자, 완료 획, 현재 획, 안내와 판정이 모두 같은 StrokePath 객체를 사용합니다.
+      // 흐린 완성 글자, 완료 획, 현재 획, 안내와 판정은 최종 fit된 동일 StrokePath 객체를 사용합니다.
       layers.background.forEach((stroke) => {
         const visual = getCanonicalStrokeVisualMetrics(side, stroke)
         drawPolyline(context, stroke.guidePoints, rect.width, rect.height, {
           color: '#b9d1c7',
           lineWidth: visual.backgroundWidth,
-          alpha: 0.34,
+          alpha: 0.28,
         })
       })
 
@@ -168,12 +168,12 @@ export default function PracticeCanvas({
         const visual = getCanonicalStrokeVisualMetrics(side, currentStroke)
         drawPolyline(context, currentStroke.guidePoints, rect.width, rect.height, {
           color: helpLevel >= 2 ? '#65b597' : '#79bea4',
-          lineWidth: clamp(visual.currentWidth * (helpLevel >= 2 ? 1.08 : 1), 4.5, 17),
+          lineWidth: clamp(visual.currentWidth * (helpLevel >= 2 ? 1.08 : 1), 4.4, 15),
           dash: reducedMotionRef.current ? undefined : visual.dash,
           alpha: 0.96,
         })
 
-        const startRadius = clamp(visual.startRadius + helpLevel * 1.25, 8, 15)
+        const startRadius = clamp(visual.startRadius + helpLevel * 1.25, 8, 14)
         context.fillStyle = '#fffefb'
         context.strokeStyle = '#2f7d65'
         context.lineWidth = clamp(side * 0.004, 2, 3.5)
@@ -197,7 +197,7 @@ export default function PracticeCanvas({
           const progress = Math.min(1, elapsed / activeDuration)
           if (elapsed <= activeDuration) {
             const guidePoint = pointAtProgress(currentStroke.guidePoints, progress)
-            const glowRadius = clamp(visual.glowRadius + (helpLevel >= 1 ? 1 : 0), 6, 11)
+            const glowRadius = clamp(visual.glowRadius + (helpLevel >= 1 ? 1 : 0), 6, 10.5)
             const gradient = context.createRadialGradient(
               guidePoint.x * rect.width,
               guidePoint.y * rect.height,
@@ -221,7 +221,7 @@ export default function PracticeCanvas({
         const visual = currentStroke ? getCanonicalStrokeVisualMetrics(side, currentStroke) : null
         drawPolyline(context, activeStrokeRef.current, rect.width, rect.height, {
           color: '#234f42',
-          lineWidth: visual?.userWidth ?? clamp(side * 0.017, 6, 15),
+          lineWidth: visual?.userWidth ?? clamp(side * 0.016, 6, 14),
         })
       }
 
@@ -229,7 +229,7 @@ export default function PracticeCanvas({
         const visual = currentStroke ? getCanonicalStrokeVisualMetrics(side, currentStroke) : null
         drawPolyline(context, failedStroke, rect.width, rect.height, {
           color: '#e6a15d',
-          lineWidth: visual?.userWidth ?? clamp(side * 0.017, 6, 15),
+          lineWidth: visual?.userWidth ?? clamp(side * 0.016, 6, 14),
           alpha: 0.7,
         })
       }
@@ -305,6 +305,7 @@ export default function PracticeCanvas({
   }
 
   const currentStroke = character.strokes[currentStrokeIndex]
+  const fittedBounds = character.fit?.after
   return (
     <canvas
       ref={canvasRef}
@@ -325,6 +326,16 @@ export default function PracticeCanvas({
       data-current-stroke-id={currentStroke?.id}
       data-canonical-stroke-source={CANONICAL_STROKE_RENDERING_MARKER}
       data-canonical-stroke-count={character.strokes.length}
+      data-glyph-layout-type={character.layoutType ?? 'jamo'}
+      data-glyph-final-kind={character.finalKind ?? 'none'}
+      data-glyph-fit-scale={character.fit?.scale.toFixed(4)}
+      data-glyph-fit-usage-x={character.fit?.usageX.toFixed(4)}
+      data-glyph-fit-usage-y={character.fit?.usageY.toFixed(4)}
+      data-glyph-center-x={fittedBounds?.centerX.toFixed(4)}
+      data-glyph-center-y={fittedBounds?.centerY.toFixed(4)}
+      data-glyph-width={fittedBounds?.width.toFixed(4)}
+      data-glyph-height={fittedBounds?.height.toFixed(4)}
+      data-glyph-override={character.overrideKey ?? 'none'}
     />
   )
 }
