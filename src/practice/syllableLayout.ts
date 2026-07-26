@@ -1,172 +1,269 @@
 import { decomposeHangulCharacter } from './hangulDecompose'
-import { COMPLEX_VOWEL_COMPONENTS, FINAL_CLUSTER_COMPONENTS, getSimpleJamoTemplate, isVowelJamo } from './strokeTemplates'
-import { transformStroke } from './strokePath'
-import type { GeneratedCharacter, PracticePoint, StrokePath } from './types'
+import {
+  COMPLEX_VOWEL_COMPONENTS,
+  FINAL_CLUSTER_COMPONENTS,
+  getSimpleJamoTemplate,
+  isVowelJamo,
+} from './strokeTemplates'
+import {
+  adjustAllStrokes,
+  adjustStrokeGroup,
+  fitStrokesToBox,
+  getStrokeBounds,
+  multiplyStrokeWidth,
+  prefixStrokeIds,
+} from './glyphFit'
+import { applyOpticalAdjustmentToBox, getOpticalAdjustment } from './opticalAdjustments'
+import {
+  COMPLEX_BOTTOM_VOWELS,
+  COMPLEX_TOP_VOWELS,
+  HORIZONTAL_VOWELS,
+  VERTICAL_VOWELS,
+  getSyllableFinalKind,
+  getSyllableLayoutTemplate,
+  getSyllableLayoutType,
+} from './syllableLayoutTemplates'
+import { getSyllableOverride } from './syllableOverrides'
+import type { GlyphBounds, GlyphFitMetadata, GeneratedCharacter, StrokePath, SyllableFinalKind, SyllableLayoutType, SyllableRole } from './types'
+import type { LayoutBox, SyllableLayoutTemplate } from './syllableLayoutTemplates'
 
-const VERTICAL_VOWELS = new Set(['ㅏ', 'ㅐ', 'ㅑ', 'ㅒ', 'ㅓ', 'ㅔ', 'ㅕ', 'ㅖ', 'ㅣ'])
-const HORIZONTAL_VOWELS = new Set(['ㅗ', 'ㅛ', 'ㅜ', 'ㅠ', 'ㅡ'])
-const COMPLEX_TOP_VOWELS = new Set(['ㅘ', 'ㅙ', 'ㅚ'])
-const COMPLEX_BOTTOM_VOWELS = new Set(['ㅝ', 'ㅞ', 'ㅟ'])
-
-export interface LayoutBox { x: number; y: number; width: number; height: number }
+export type { LayoutBox } from './syllableLayoutTemplates'
 
 export interface SyllableLayoutBoxes {
   initial: LayoutBox
   medial: LayoutBox[]
   final?: LayoutBox
+  clusterFinal?: [LayoutBox, LayoutBox]
+  target: LayoutBox
+  minimumGap: number
 }
 
-function place(strokes: StrokePath[], box: LayoutBox, prefix: string): StrokePath[] {
-  return strokes.map((stroke, index) => transformStroke(stroke, box, `${prefix}${index + 1}-`))
+export interface CharacterGenerationOptions {
+  applyOptical?: boolean
+  applyOverride?: boolean
+  applyFit?: boolean
 }
 
-function centeredSquare(box: LayoutBox): LayoutBox {
-  const size = Math.min(box.width, box.height)
-  return {
-    x: box.x + (box.width - size) / 2,
-    y: box.y + (box.height - size) / 2,
-    width: size,
-    height: size,
+export interface CharacterGenerationStages {
+  character: GeneratedCharacter
+  layoutType?: SyllableLayoutType
+  finalKind: SyllableFinalKind
+  basePlacedStrokes: StrokePath[]
+  opticalPlacedStrokes: StrokePath[]
+  overriddenStrokes: StrokePath[]
+  beforeFitBounds: GlyphBounds | null
+  fitMetadata?: GlyphFitMetadata
+  overrideApplied: boolean
+}
+
+function placeTemplateInBox(
+  template: StrokePath[],
+  box: LayoutBox,
+  prefix: string,
+  strokeWidthScale = 1,
+): StrokePath[] {
+  const fitted = fitStrokesToBox(template, box).strokes
+  return prefixStrokeIds(multiplyStrokeWidth(fitted, strokeWidthScale), prefix)
+}
+
+function placeJamo(
+  jamo: string,
+  role: SyllableRole,
+  box: LayoutBox,
+  layoutType: SyllableLayoutType,
+  prefix: string,
+  applyOptical: boolean,
+): StrokePath[] {
+  const template = getSimpleJamoTemplate(jamo)
+  const adjustment = applyOptical ? getOpticalAdjustment(jamo, role, layoutType) : {}
+  const adjustedBox = applyOpticalAdjustmentToBox(box, adjustment)
+  return placeTemplateInBox(template, adjustedBox, prefix, adjustment.strokeWidthScale ?? 1)
+}
+
+function placeMedial(
+  medial: string,
+  template: SyllableLayoutTemplate,
+  applyOptical: boolean,
+): StrokePath[] {
+  const layoutType = template.type
+  if (VERTICAL_VOWELS.has(medial) || HORIZONTAL_VOWELS.has(medial)) {
+    return placeJamo(medial, 'medial', template.medial[0], layoutType, `medial-${medial}-`, applyOptical)
   }
-}
-
-function placeFinal(finalJamo: string, box: LayoutBox): StrokePath[] {
-  const cluster = FINAL_CLUSTER_COMPONENTS[finalJamo]
-  if (!cluster) return place(getSimpleJamoTemplate(finalJamo), centeredSquare(box), `final-${finalJamo}-`)
-  const [left, right] = cluster
-  const gap = 0.025
-  const half = (box.width - gap) / 2
-  return [
-    ...place(getSimpleJamoTemplate(left), centeredSquare({ x: box.x, y: box.y, width: half, height: box.height }), `final-${finalJamo}-l-`),
-    ...place(getSimpleJamoTemplate(right), centeredSquare({ x: box.x + half + gap, y: box.y, width: half, height: box.height }), `final-${finalJamo}-r-`),
-  ]
-}
-
-export function getSyllableLayoutBoxes(medial: string, hasFinal: boolean): SyllableLayoutBoxes {
-  if (VERTICAL_VOWELS.has(medial)) {
-    return hasFinal
-      ? {
-          initial: { x: 0.08, y: 0.07, width: 0.42, height: 0.54 },
-          medial: [{ x: 0.52, y: 0.06, width: 0.4, height: 0.56 }],
-          final: { x: 0.3, y: 0.72, width: 0.4, height: 0.22 },
-        }
-      : {
-          initial: { x: 0.06, y: 0.08, width: 0.44, height: 0.84 },
-          medial: [{ x: 0.49, y: 0.07, width: 0.44, height: 0.86 }],
-        }
-  }
-
-  if (HORIZONTAL_VOWELS.has(medial)) {
-    return hasFinal
-      ? {
-          initial: { x: 0.17, y: 0.05, width: 0.66, height: 0.3 },
-          medial: [{ x: 0.1, y: 0.39, width: 0.8, height: 0.25 }],
-          final: { x: 0.3, y: 0.73, width: 0.4, height: 0.19 },
-        }
-      : {
-          initial: { x: 0.13, y: 0.06, width: 0.74, height: 0.42 },
-          medial: [{ x: 0.08, y: 0.52, width: 0.84, height: 0.35 }],
-        }
-  }
-
-  if (medial === 'ㅢ') {
-    return hasFinal
-      ? {
-          initial: { x: 0.12, y: 0.04, width: 0.4, height: 0.28 },
-          medial: [
-            { x: 0.1, y: 0.38, width: 0.64, height: 0.2 },
-            { x: 0.74, y: 0.05, width: 0.18, height: 0.52 },
-          ],
-          final: { x: 0.3, y: 0.74, width: 0.4, height: 0.18 },
-        }
-      : {
-          initial: { x: 0.1, y: 0.06, width: 0.44, height: 0.4 },
-          medial: [
-            { x: 0.08, y: 0.52, width: 0.7, height: 0.26 },
-            { x: 0.72, y: 0.08, width: 0.2, height: 0.7 },
-          ],
-        }
-  }
-
-  const isTop = COMPLEX_TOP_VOWELS.has(medial)
-  return hasFinal
-    ? {
-        initial: { x: 0.08, y: 0.05, width: 0.4, height: 0.32 },
-        medial: isTop
-          ? [
-              { x: 0.08, y: 0.39, width: 0.84, height: 0.22 },
-              { x: 0.54, y: 0.05, width: 0.38, height: 0.4 },
-            ]
-          : [
-              { x: 0.08, y: 0.34, width: 0.84, height: 0.23 },
-              { x: 0.54, y: 0.05, width: 0.38, height: 0.4 },
-            ],
-        final: { x: 0.3, y: 0.74, width: 0.4, height: 0.18 },
-      }
-    : {
-        initial: { x: 0.07, y: 0.07, width: 0.42, height: 0.45 },
-        medial: isTop
-          ? [
-              { x: 0.08, y: 0.48, width: 0.84, height: 0.34 },
-              { x: 0.52, y: 0.07, width: 0.4, height: 0.5 },
-            ]
-          : [
-              { x: 0.08, y: 0.38, width: 0.84, height: 0.34 },
-              { x: 0.52, y: 0.07, width: 0.4, height: 0.5 },
-            ],
-      }
-}
-
-function placeComplexVowel(vowel: string, boxes: LayoutBox[]): StrokePath[] {
-  const components = COMPLEX_VOWEL_COMPONENTS[vowel]
-  if (!components || boxes.length < 2) return []
+  const components = COMPLEX_VOWEL_COMPONENTS[medial]
+  if (!components || template.medial.length < 2) return []
   const [horizontal, vertical] = components
   return [
-    ...place(getSimpleJamoTemplate(horizontal), boxes[0], `medial-${vowel}-h-`),
-    ...place(getSimpleJamoTemplate(vertical), boxes[1], `medial-${vowel}-v-`),
+    ...placeJamo(horizontal, 'medial', template.medial[0], layoutType, `medial-${medial}-h-`, applyOptical),
+    ...placeJamo(vertical, 'medial', template.medial[1], layoutType, `medial-${medial}-v-`, applyOptical),
   ]
 }
 
-function generateSyllable(character: string, initial: string, medial: string, final?: string): GeneratedCharacter {
-  const boxes = getSyllableLayoutBoxes(medial, Boolean(final))
-  const strokes: StrokePath[] = []
-  strokes.push(...place(getSimpleJamoTemplate(initial), boxes.initial, `initial-${initial}-`))
-
-  if (VERTICAL_VOWELS.has(medial) || HORIZONTAL_VOWELS.has(medial)) {
-    strokes.push(...place(getSimpleJamoTemplate(medial), boxes.medial[0], `medial-${medial}-`))
-  } else {
-    strokes.push(...placeComplexVowel(medial, boxes.medial))
+function placeFinal(
+  finalJamo: string,
+  template: SyllableLayoutTemplate,
+  applyOptical: boolean,
+): StrokePath[] {
+  const cluster = FINAL_CLUSTER_COMPONENTS[finalJamo]
+  if (cluster && template.clusterFinal) {
+    const [left, right] = cluster
+    return [
+      ...placeJamo(left, 'final', template.clusterFinal[0], template.type, `final-${finalJamo}-l-`, applyOptical),
+      ...placeJamo(right, 'final', template.clusterFinal[1], template.type, `final-${finalJamo}-r-`, applyOptical),
+    ]
   }
-
-  if (final && boxes.final) strokes.push(...placeFinal(final, boxes.final))
-  return { character, kind: 'syllable', initial, medial, final, strokes }
+  if (!template.final) return []
+  return placeJamo(finalJamo, 'final', template.final, template.type, `final-${finalJamo}-`, applyOptical)
 }
 
-export function generateCharacterStrokes(character: string): GeneratedCharacter | null {
+function placeSyllableParts(
+  initial: string,
+  medial: string,
+  final: string | undefined,
+  template: SyllableLayoutTemplate,
+  applyOptical: boolean,
+): StrokePath[] {
+  return [
+    ...placeJamo(initial, 'initial', template.initial, template.type, `initial-${initial}-`, applyOptical),
+    ...placeMedial(medial, template, applyOptical),
+    ...(final ? placeFinal(final, template, applyOptical) : []),
+  ]
+}
+
+function rolePredicate(role: SyllableRole): (stroke: StrokePath) => boolean {
+  return (stroke) => stroke.id.startsWith(`${role}-`)
+}
+
+function applySyllableOverride(character: string, strokes: StrokePath[]): { strokes: StrokePath[]; applied: boolean } {
+  const override = getSyllableOverride(character)
+  if (!override) return { strokes, applied: false }
+  let adjusted = strokes
+  for (const role of ['initial', 'medial', 'final'] as const) {
+    adjusted = adjustStrokeGroup(adjusted, rolePredicate(role), override.roles?.[role])
+  }
+  adjusted = adjustAllStrokes(adjusted, override.whole)
+  return { strokes: adjusted, applied: true }
+}
+
+function createSyllableStages(
+  character: string,
+  initial: string,
+  medial: string,
+  final: string | undefined,
+  options: CharacterGenerationOptions,
+): CharacterGenerationStages {
+  const applyOptical = options.applyOptical ?? true
+  const applyOverride = options.applyOverride ?? true
+  const applyFit = options.applyFit ?? true
+  const template = getSyllableLayoutTemplate(medial, Boolean(final))
+  const layoutType = template.type
+  const finalKind = getSyllableFinalKind(final, Boolean(final && FINAL_CLUSTER_COMPONENTS[final]))
+  const basePlacedStrokes = placeSyllableParts(initial, medial, final, template, false)
+  const opticalPlacedStrokes = applyOptical
+    ? placeSyllableParts(initial, medial, final, template, true)
+    : basePlacedStrokes
+  const overrideResult = applyOverride
+    ? applySyllableOverride(character, opticalPlacedStrokes)
+    : { strokes: opticalPlacedStrokes, applied: false }
+  const overriddenStrokes = overrideResult.strokes
+  const beforeFitBounds = getStrokeBounds(overriddenStrokes)
+  const override = overrideResult.applied ? getSyllableOverride(character) : undefined
+  const target = override?.fitBox ?? template.target
+  const fitResult = applyFit ? fitStrokesToBox(overriddenStrokes, target) : undefined
+  const finalStrokes = fitResult?.strokes ?? overriddenStrokes
+  const generated: GeneratedCharacter = {
+    character,
+    kind: 'syllable',
+    initial,
+    medial,
+    final,
+    strokes: finalStrokes,
+    layoutType,
+    finalKind,
+    fit: fitResult?.metadata,
+    overrideKey: overrideResult.applied ? character : undefined,
+  }
+  return {
+    character: generated,
+    layoutType,
+    finalKind,
+    basePlacedStrokes,
+    opticalPlacedStrokes,
+    overriddenStrokes,
+    beforeFitBounds,
+    fitMetadata: fitResult?.metadata,
+    overrideApplied: overrideResult.applied,
+  }
+}
+
+function createJamoStages(character: string, options: CharacterGenerationOptions): CharacterGenerationStages | null {
+  const template = getSimpleJamoTemplate(character)
+  if (!template.length) return null
+  const isVowel = isVowelJamo(character)
+  const baseBox: LayoutBox = isVowel
+    ? { x: 0.17, y: 0.11, width: 0.66, height: 0.78 }
+    : { x: 0.14, y: 0.13, width: 0.72, height: 0.74 }
+  const layoutType: SyllableLayoutType = isVowel ? 'vertical-no-final' : 'vertical-no-final'
+  const role: SyllableRole = isVowel ? 'medial' : 'initial'
+  const adjustment = options.applyOptical === false ? {} : getOpticalAdjustment(character, role, layoutType)
+  const opticalBox = applyOpticalAdjustmentToBox(baseBox, adjustment)
+  const basePlacedStrokes = placeTemplateInBox(template, baseBox, `jamo-${character}-`)
+  const opticalPlacedStrokes = options.applyOptical === false
+    ? basePlacedStrokes
+    : placeTemplateInBox(template, opticalBox, `jamo-${character}-`, adjustment.strokeWidthScale ?? 1)
+  const beforeFitBounds = getStrokeBounds(opticalPlacedStrokes)
+  const fitResult = options.applyFit === false
+    ? undefined
+    : fitStrokesToBox(opticalPlacedStrokes, { x: 0.14, y: 0.11, width: 0.72, height: 0.78 })
+  const generated: GeneratedCharacter = {
+    character,
+    kind: 'jamo',
+    strokes: fitResult?.strokes ?? opticalPlacedStrokes,
+    fit: fitResult?.metadata,
+  }
+  return {
+    character: generated,
+    finalKind: 'none',
+    basePlacedStrokes,
+    opticalPlacedStrokes,
+    overriddenStrokes: opticalPlacedStrokes,
+    beforeFitBounds,
+    fitMetadata: fitResult?.metadata,
+    overrideApplied: false,
+  }
+}
+
+export function generateCharacterStrokeStages(
+  character: string,
+  options: CharacterGenerationOptions = {},
+): CharacterGenerationStages | null {
   const decomposition = decomposeHangulCharacter(character)
   if (decomposition.kind === 'unsupported') return null
-  if (decomposition.kind === 'jamo') {
-    const template = getSimpleJamoTemplate(character)
-    if (!template.length) return null
-    const isVowel = isVowelJamo(character)
-    return {
-      character,
-      kind: 'jamo',
-      strokes: place(
-        template,
-        isVowel
-          ? { x: 0.12, y: 0.08, width: 0.76, height: 0.84 }
-          : { x: 0.1, y: 0.1, width: 0.8, height: 0.8 },
-        `jamo-${character}-`,
-      ),
-    }
-  }
-  return generateSyllable(
+  if (decomposition.kind === 'jamo') return createJamoStages(character, options)
+  return createSyllableStages(
     character,
     decomposition.initial as string,
     decomposition.medial as string,
     decomposition.final,
+    options,
   )
+}
+
+export function generateCharacterStrokes(character: string): GeneratedCharacter | null {
+  return generateCharacterStrokeStages(character)?.character ?? null
+}
+
+export function getSyllableLayoutBoxes(medial: string, hasFinal: boolean): SyllableLayoutBoxes {
+  const template = getSyllableLayoutTemplate(medial, hasFinal)
+  return {
+    initial: { ...template.initial },
+    medial: template.medial.map((box) => ({ ...box })),
+    final: template.final ? { ...template.final } : undefined,
+    clusterFinal: template.clusterFinal
+      ? [{ ...template.clusterFinal[0] }, { ...template.clusterFinal[1] }]
+      : undefined,
+    target: { ...template.target },
+    minimumGap: template.minimumGap,
+  }
 }
 
 export function isGeneratedCharacterInBounds(character: GeneratedCharacter): boolean {
@@ -184,25 +281,15 @@ export function isGeneratedCharacterInBounds(character: GeneratedCharacter): boo
   )
 }
 
-export function getStrokeBounds(strokes: StrokePath[]): LayoutBox | null {
-  const points: PracticePoint[] = strokes.flatMap((stroke) => stroke.guidePoints)
-  if (!points.length) return null
-  const minX = Math.min(...points.map((point) => point.x))
-  const maxX = Math.max(...points.map((point) => point.x))
-  const minY = Math.min(...points.map((point) => point.y))
-  const maxY = Math.max(...points.map((point) => point.y))
-  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
-}
+export { getStrokeBounds } from './glyphFit'
 
-export function getGeneratedComponentBounds(character: GeneratedCharacter): Partial<Record<'initial' | 'medial' | 'final', LayoutBox>> {
-  const result: Partial<Record<'initial' | 'medial' | 'final', LayoutBox>> = {}
+export function getGeneratedComponentBounds(character: GeneratedCharacter): Partial<Record<SyllableRole, GlyphBounds>> {
+  const result: Partial<Record<SyllableRole, GlyphBounds>> = {}
   if (character.kind !== 'syllable') return result
-  const initial = getStrokeBounds(character.strokes.filter((stroke) => stroke.id.startsWith('initial-')))
-  const medial = getStrokeBounds(character.strokes.filter((stroke) => stroke.id.startsWith('medial-')))
-  const final = getStrokeBounds(character.strokes.filter((stroke) => stroke.id.startsWith('final-')))
-  if (initial) result.initial = initial
-  if (medial) result.medial = medial
-  if (final) result.final = final
+  for (const role of ['initial', 'medial', 'final'] as const) {
+    const bounds = getStrokeBounds(character.strokes.filter(rolePredicate(role)))
+    if (bounds) result[role] = bounds
+  }
   return result
 }
 
@@ -213,3 +300,5 @@ export function getVowelLayoutKind(vowel: string): 'vertical' | 'horizontal' | '
   if (COMPLEX_BOTTOM_VOWELS.has(vowel)) return 'complex-bottom'
   return 'complex-eui'
 }
+
+export { getSyllableLayoutType }
