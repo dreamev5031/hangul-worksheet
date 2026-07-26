@@ -20,7 +20,7 @@ export const SYLLABLE_OVERRIDES: Record<string, SyllableOverride> = {
     roles: {
       initial: { scaleX: 0.94, scaleY: 0.96, translateX: -0.006 },
       medial: { scaleX: 0.96, scaleY: 0.98, translateX: -0.012 },
-      final: { scaleX: 1.14, scaleY: 1.1, translateY: -0.006 },
+      final: { scaleX: 1.04, scaleY: 1.04, translateY: -0.004 },
     },
     fitBox: { x: 0.13, y: 0.08, width: 0.74, height: 0.84 },
   },
