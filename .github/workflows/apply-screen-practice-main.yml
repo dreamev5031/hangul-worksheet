@@ -1,4 +1,5 @@
 name: Apply and merge stroke-order practice
+# Registered workflow trigger
 
 on:
   push:
