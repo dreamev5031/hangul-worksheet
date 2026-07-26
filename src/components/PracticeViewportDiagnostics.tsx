@@ -18,9 +18,11 @@ export default function PracticeViewportDiagnostics() {
       })
     }
 
-    const observer = new ResizeObserver(measure)
-    observer.observe(document.documentElement)
-    observer.observe(document.body)
+    const resizeObserver = new ResizeObserver(measure)
+    resizeObserver.observe(document.documentElement)
+    resizeObserver.observe(document.body)
+    const mutationObserver = new MutationObserver(measure)
+    mutationObserver.observe(document.documentElement, { childList: true, subtree: true })
     window.addEventListener('resize', measure)
     window.addEventListener('orientationchange', measure)
     window.visualViewport?.addEventListener('resize', measure)
@@ -31,7 +33,8 @@ export default function PracticeViewportDiagnostics() {
     return () => {
       window.cancelAnimationFrame(frame)
       window.clearInterval(interval)
-      observer.disconnect()
+      resizeObserver.disconnect()
+      mutationObserver.disconnect()
       window.removeEventListener('resize', measure)
       window.removeEventListener('orientationchange', measure)
       window.visualViewport?.removeEventListener('resize', measure)
