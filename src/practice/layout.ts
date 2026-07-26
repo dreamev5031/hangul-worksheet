@@ -32,19 +32,19 @@ export function calculatePracticeLayout(viewport: PracticeViewport): PracticeLay
   const safeLeft = Math.max(0, viewport.safeLeft ?? 0)
   const safeRight = Math.max(0, viewport.safeRight ?? 0)
   const viewportWidth = Math.max(320, viewport.width - safeLeft - safeRight)
-  const viewportHeight = Math.max(280, viewport.height - safeTop - safeBottom)
+  const viewportHeight = Math.max(200, viewport.height - safeTop - safeBottom)
   const landscape = viewportWidth >= 700 && viewportWidth > viewportHeight * 1.15
 
   if (landscape) {
     const compact = viewportWidth < 900 || viewportHeight < 560
     const mode: PracticeLayoutMode = compact ? 'phone-landscape' : 'tablet-landscape'
-    const headerHeight = compact ? 50 : 58
+    const headerHeight = compact ? 0 : 58
     const outerMargin = compact ? 8 : viewportWidth >= 1200 ? 16 : 12
     const gap = compact ? 10 : viewportWidth >= 1200 ? 18 : 16
     const panelWidth = compact
       ? Math.round(clamp(viewportWidth * 0.23, 168, 216))
       : Math.round(clamp(viewportWidth * 0.245, 240, 340))
-    const availableHeight = Math.max(220, viewportHeight - headerHeight - outerMargin * 2)
+    const availableHeight = Math.max(180, viewportHeight - headerHeight - outerMargin * 2)
     const availableWidth = Math.max(220, viewportWidth - outerMargin * 2 - gap - panelWidth)
     return {
       mode,
