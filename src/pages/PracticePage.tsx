@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { ChangeEvent } from 'react'
+import type { ChangeEvent, CSSProperties } from 'react'
 import PracticeCanvas from '../components/PracticeCanvas'
 import PracticeSessionControls from '../components/PracticeSessionControls'
 import PracticeSessionHeader from '../components/PracticeSessionHeader'
+import PracticeSidePanel from '../components/PracticeSidePanel'
 import Seo from '../components/Seo'
 import { createAudioFeedbackController } from '../practice/audioFeedback'
 import { calculatePracticeLayout } from '../practice/layout'
@@ -49,6 +50,13 @@ function formatDuration(durationMs: number): string {
   return minutes > 0 ? `${minutes}분 ${remainder}초` : `${remainder}초`
 }
 
+function getViewportSize() {
+  return {
+    width: window.visualViewport?.width ?? window.innerWidth,
+    height: window.visualViewport?.height ?? window.innerHeight,
+  }
+}
+
 function SetupView({
   config,
   onChange,
@@ -64,7 +72,7 @@ function SetupView({
       <div className="practice-setup-card">
         <p className="eyebrow">한 획씩 따라쓰기</p>
         <h1 id="practice-setup-title">연습할 한글을 입력해 주세요</h1>
-        <p>올바른 획순을 한 획씩 안내하고, 손을 떼면 현재 획을 자동으로 확인해요.</p>
+        <p>예쁜 정자체 기준 글자를 보고 올바른 획순을 한 획씩 따라 써요. 손을 떼면 현재 획을 자동으로 확인해요.</p>
         <label htmlFor="practice-direct-input">연습 내용</label>
         <textarea
           id="practice-direct-input"
@@ -233,7 +241,8 @@ function CompleteView({
 
 export default function PracticePage() {
   const search = new URLSearchParams(window.location.search)
-  const storedConfig = loadPracticeConfig() ?? defaultConfig
+  const requestedText = search.get('text')?.trim()
+  const storedConfig = requestedText ? { rawText: requestedText } : loadPracticeConfig() ?? defaultConfig
   const initialParsed = parsePracticeItems(storedConfig.rawText)
   const wantsHistory = search.get('view') === 'history'
   const wantsStart = search.get('start') === '1' && initialParsed.items.length > 0
@@ -248,7 +257,8 @@ export default function PracticePage() {
   const [statusMessage, setStatusMessage] = useState('시작점에서 화살표 방향으로 따라 써 보세요.')
   const [completedRecord, setCompletedRecord] = useState<PracticeSessionRecordV2 | null>(null)
   const [soundEnabled, setSoundEnabled] = useState(() => loadSoundEnabled())
-  const [canvasSide, setCanvasSide] = useState(() => calculatePracticeLayout({ width: window.innerWidth, height: window.innerHeight }).canvasSide)
+  const [layout, setLayout] = useState(() => calculatePracticeLayout(getViewportSize()))
+  const [scrollOk, setScrollOk] = useState(false)
   const audioRef = useRef<AudioFeedbackController | null>(null)
   const timerRef = useRef<number | null>(null)
 
@@ -269,21 +279,35 @@ export default function PracticePage() {
   useEffect(() => {
     if (view !== 'practice') return
     document.body.classList.add('practice-session-active')
+    let frame = 0
     const updateViewport = () => {
-      const height = window.visualViewport?.height ?? window.innerHeight
-      document.documentElement.style.setProperty('--practice-vh', `${height}px`)
-      setCanvasSide(calculatePracticeLayout({ width: window.innerWidth, height }).canvasSide)
+      const viewport = getViewportSize()
+      const metrics = calculatePracticeLayout(viewport)
+      document.documentElement.style.setProperty('--practice-vh', `${viewport.height}px`)
+      document.documentElement.style.setProperty('--practice-vw', `${viewport.width}px`)
+      setLayout(metrics)
+      window.cancelAnimationFrame(frame)
+      frame = window.requestAnimationFrame(() => {
+        frame = window.requestAnimationFrame(() => {
+          const root = document.documentElement
+          setScrollOk(root.scrollHeight <= root.clientHeight + 2 && root.scrollWidth <= root.clientWidth + 2)
+        })
+      })
     }
     updateViewport()
     window.addEventListener('resize', updateViewport)
     window.addEventListener('orientationchange', updateViewport)
     window.visualViewport?.addEventListener('resize', updateViewport)
+    window.visualViewport?.addEventListener('scroll', updateViewport)
     return () => {
       document.body.classList.remove('practice-session-active')
       document.documentElement.style.removeProperty('--practice-vh')
+      document.documentElement.style.removeProperty('--practice-vw')
+      window.cancelAnimationFrame(frame)
       window.removeEventListener('resize', updateViewport)
       window.removeEventListener('orientationchange', updateViewport)
       window.visualViewport?.removeEventListener('resize', updateViewport)
+      window.visualViewport?.removeEventListener('scroll', updateViewport)
     }
   }, [view])
 
@@ -388,6 +412,27 @@ export default function PracticePage() {
     window.location.href = '/'
   }
 
+  const handleExit = () => {
+    if (timerRef.current !== null) window.clearTimeout(timerRef.current)
+    setView('setup')
+    window.history.replaceState(null, '', '/practice/')
+  }
+
+  const handleRestartCharacter = () => {
+    if (timerRef.current !== null) window.clearTimeout(timerRef.current)
+    setSession((current) => restartCurrentCharacter(current))
+    setVisualCompletedCount(0)
+    setFailedStroke(null)
+    setPhase('writing')
+    setStatusMessage('첫 획부터 다시 따라 써 보세요.')
+    setGuideReplayKey((value) => value + 1)
+  }
+
+  const handleReplayGuide = () => {
+    setGuideReplayKey((value) => value + 1)
+    setStatusMessage('빛나는 점과 화살표를 따라 써 보세요.')
+  }
+
   if (view === 'history') {
     return (
       <>
@@ -400,7 +445,7 @@ export default function PracticePage() {
   if (view === 'setup') {
     return (
       <>
-        <Seo title="아이용 한글 획순 따라쓰기" description="올바른 한글 획순을 한 획씩 보고 손가락, 펜 또는 마우스로 따라 써 보세요." path="/practice" />
+        <Seo title="아이용 한글 획순 따라쓰기" description="예쁜 정자체 기준 글자와 올바른 획순을 한 획씩 보고 손가락, 펜 또는 마우스로 따라 써 보세요." path="/practice" />
         <SetupView config={config} onChange={setConfig} onStart={() => beginPractice(parsed.items)} />
       </>
     )
@@ -436,63 +481,84 @@ export default function PracticePage() {
     )
   }
 
+  const layoutStyle = {
+    '--practice-canvas-side': `${layout.canvasSide}px`,
+    '--practice-panel-width': `${layout.panelWidth}px`,
+    '--practice-layout-gap': `${layout.gap}px`,
+    '--practice-outer-margin': `${layout.outerMargin}px`,
+  } as CSSProperties
+
   return (
     <>
-      <Seo title={`${currentItem} 획순 따라쓰기`} description="현재 획을 따라 쓰고 손을 떼면 자동으로 다음 획으로 이동합니다." path="/practice" noIndex />
-      <section className="practice-session-shell" aria-label="한글 획순 따라쓰기 집중 모드">
+      <Seo title={`${currentItem} 획순 따라쓰기`} description="예쁜 정자체 기준 글자 위에서 현재 획을 따라 쓰고 손을 떼면 자동으로 다음 획으로 이동합니다." path="/practice" noIndex />
+      <section
+        className={`practice-session-shell layout-${layout.mode}`}
+        aria-label="한글 획순 따라쓰기 집중 모드"
+        data-layout-mode={layout.mode}
+        data-canvas-side={layout.canvasSide}
+        data-panel-width={layout.panelWidth}
+        data-scroll-ok={scrollOk}
+        style={layoutStyle}
+      >
         <PracticeSessionHeader
           character={currentItem}
           currentIndex={session.currentItemIndex}
           totalItems={session.items.length}
           soundEnabled={soundEnabled}
-          onExit={() => {
-            if (timerRef.current !== null) window.clearTimeout(timerRef.current)
-            setView('setup')
-            window.history.replaceState(null, '', '/practice/')
-          }}
+          onExit={handleExit}
           onToggleSound={() => setSoundEnabled((enabled) => !enabled)}
           onHistory={handleHistory}
         />
 
-        <main className="canvas-stage">
-          <div className="stroke-status-line">
-            <strong>{currentItem}</strong>
-            <span aria-label={`현재 ${session.currentStrokeIndex + 1}번째 획, 전체 ${generatedCharacter.strokes.length}획`}>
-              {session.currentStrokeIndex + 1} / {generatedCharacter.strokes.length}획
-            </span>
-          </div>
-          <div className={`stroke-canvas-frame phase-${phase}`} style={{ width: `${canvasSide}px`, height: `${canvasSide}px` }}>
-            <PracticeCanvas
-              character={generatedCharacter}
-              currentStrokeIndex={session.currentStrokeIndex}
-              completedStrokeCount={visualCompletedCount}
-              retryCount={session.currentStrokeRetryCount}
-              guideReplayKey={guideReplayKey}
-              phase={phase}
-              failedStroke={failedStroke}
-              onInteractionStart={() => { void audioRef.current?.unlock() }}
-              onStrokeEnd={handleStrokeEnd}
-            />
-            {phase === 'character-complete' && <div className="character-praise" aria-hidden="true">참 잘했어요!</div>}
-          </div>
-          <p className={`practice-live-message message-${phase}`} aria-live="polite">{statusMessage}</p>
+        <main className="practice-session-main">
+          <section className="practice-canvas-stage" aria-label="필기 캔버스 영역">
+            <div className="portrait-stroke-status">
+              <strong>{currentItem}</strong>
+              <span aria-label={`현재 ${session.currentStrokeIndex + 1}번째 획, 전체 ${generatedCharacter.strokes.length}획`}>
+                {session.currentStrokeIndex + 1} / {generatedCharacter.strokes.length}획
+              </span>
+            </div>
+            <div className={`stroke-canvas-frame phase-${phase}`} style={{ width: `${layout.canvasSide}px`, height: `${layout.canvasSide}px` }}>
+              <PracticeCanvas
+                character={generatedCharacter}
+                currentStrokeIndex={session.currentStrokeIndex}
+                completedStrokeCount={visualCompletedCount}
+                retryCount={session.currentStrokeRetryCount}
+                guideReplayKey={guideReplayKey}
+                phase={phase}
+                failedStroke={failedStroke}
+                onInteractionStart={() => { void audioRef.current?.unlock() }}
+                onStrokeEnd={handleStrokeEnd}
+              />
+              {phase === 'character-complete' && <div className="character-praise" aria-hidden="true">참 잘했어요!</div>}
+            </div>
+            <p className={`portrait-practice-live-message message-${phase}`} aria-live="polite">{statusMessage}</p>
+          </section>
+
+          <PracticeSidePanel
+            character={currentItem}
+            currentIndex={session.currentItemIndex}
+            totalItems={session.items.length}
+            currentStrokeIndex={session.currentStrokeIndex}
+            totalStrokes={generatedCharacter.strokes.length}
+            statusMessage={statusMessage}
+            phase={phase}
+            soundEnabled={soundEnabled}
+            onToggleSound={() => setSoundEnabled((enabled) => !enabled)}
+            onHistory={handleHistory}
+            onRestartCharacter={handleRestartCharacter}
+            onReplayGuide={handleReplayGuide}
+          />
         </main>
 
         <PracticeSessionControls
-          onRestartCharacter={() => {
-            if (timerRef.current !== null) window.clearTimeout(timerRef.current)
-            setSession((current) => restartCurrentCharacter(current))
-            setVisualCompletedCount(0)
-            setFailedStroke(null)
-            setPhase('writing')
-            setStatusMessage('첫 획부터 다시 따라 써 보세요.')
-            setGuideReplayKey((value) => value + 1)
-          }}
-          onReplayGuide={() => {
-            setGuideReplayKey((value) => value + 1)
-            setStatusMessage('빛나는 점과 화살표를 따라 써 보세요.')
-          }}
+          onRestartCharacter={handleRestartCharacter}
+          onReplayGuide={handleReplayGuide}
         />
+
+        <output className="practice-layout-diagnostics" aria-hidden="true">
+          {layout.mode}:{layout.canvasSide}:{scrollOk ? 'scroll-ok' : 'overflow'}
+        </output>
       </section>
     </>
   )
