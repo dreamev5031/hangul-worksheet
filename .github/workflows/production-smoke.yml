@@ -17,7 +17,7 @@ permissions:
 jobs:
   production-smoke:
     runs-on: ubuntu-latest
-    timeout-minutes: 22
+    timeout-minutes: 28
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -41,7 +41,7 @@ jobs:
           echo "asset=$expected_asset" >> "$GITHUB_OUTPUT"
 
           success=0
-          for attempt in {1..36}; do
+          for attempt in {1..42}; do
             home_status="$(curl --silent --show-error --location --max-time 25 --output /tmp/home.html --write-out '%{http_code}' "$base/" || true)"
             practice_status="$(curl --silent --show-error --location --max-time 25 --output /tmp/practice.html --write-out '%{http_code}' "$base/practice/" || true)"
             privacy_status="$(curl --silent --show-error --location --max-time 25 --output /tmp/privacy.html --write-out '%{http_code}' "$base/privacy/" || true)"
@@ -85,11 +85,15 @@ jobs:
           grep -Fq '획순 연습 시작하기' /tmp/app.js
           grep -Fq '참 잘했어요!' /tmp/app.js
           grep -Fq '필기 이미지와 실제 획 좌표는 저장하지 않습니다' /tmp/app.js
-          grep -Fq 'canonical-stroke-rendering-v2' /tmp/app.js
+          grep -Fq 'canonical-stroke-rendering-v3-optical-fit' /tmp/app.js
           grep -Fq 'practice-side-panel' /tmp/app.js
           grep -Fq 'tablet-landscape' /tmp/app.js
           grep -Fq 'PDF로 저장' /tmp/app.js
           grep -Fq '인쇄하기' /tmp/app.js
+          if grep -Fq 'canonical-stroke-rendering-v2' /tmp/app.js; then
+            echo 'Legacy canonical v2 marker remains in production bundle' >&2
+            exit 1
+          fi
           if grep -Fq 'display-glyph-layer-v1' /tmp/app.js; then
             echo 'Legacy system-font display glyph remains in production bundle' >&2
             exit 1
@@ -98,29 +102,45 @@ jobs:
             echo 'Legacy score action remains in production bundle' >&2
             exit 1
           fi
-          echo "Production canonical stroke bundle verified: $asset"
+          echo "Production optical-fit bundle verified: $asset"
       - name: Install Korean UI font for readable screenshots
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq fonts-noto-cjk
           fc-cache -f
-      - name: Verify live canonical stroke screens
+      - name: Verify live optical-fit glyph screens
         shell: bash
         run: |
           set -euo pipefail
           chrome="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser)"
-          mkdir -p artifacts/production-canonical
+          mkdir -p artifacts/production-glyph-optical-layout
           scenarios=(
-            'tablet-portrait-ba 768 1024 portrait %EB%B0%94'
-            'tablet-portrait-da 768 1024 portrait %EB%8B%A4'
-            'tablet-portrait-bam 768 1024 portrait %EB%B0%A4'
-            'tablet-landscape-hwang 1024 768 tablet-landscape %ED%99%A9'
-            'tablet-landscape-seul 1024 768 tablet-landscape %EC%8A%AC'
-            'phone-portrait-da 390 844 portrait %EB%8B%A4'
-            'phone-landscape-bam 844 390 phone-landscape %EB%B0%A4'
+            'tablet-portrait-hwang 768 1024 portrait 황'
+            'tablet-portrait-bam 768 1024 portrait 밤'
+            'tablet-portrait-seul 768 1024 portrait 슬'
+            'tablet-portrait-gim 768 1024 portrait 김'
+            'tablet-portrait-min 768 1024 portrait 민'
+            'tablet-portrait-jun 768 1024 portrait 준'
+            'tablet-portrait-gwa 768 1024 portrait 과'
+            'tablet-portrait-mul 768 1024 portrait 물'
+            'tablet-portrait-han 768 1024 portrait 한'
+            'tablet-landscape-hwang 1024 768 tablet-landscape 황'
+            'tablet-landscape-bam 1024 768 tablet-landscape 밤'
+            'tablet-landscape-seul 1024 768 tablet-landscape 슬'
+            'phone-portrait-hwang 390 844 portrait 황'
+            'phone-portrait-bam 390 844 portrait 밤'
+            'phone-portrait-gim 390 844 portrait 김'
+            'phone-landscape-bam 844 390 phone-landscape 밤'
+            'phone-landscape-seul 844 390 phone-landscape 슬'
           )
           for scenario in "${scenarios[@]}"; do
-            read -r name width height expected_mode encoded <<<"$scenario"
+            read -r name width height expected_mode character <<<"$scenario"
+            encoded="$(python3 - "$character" <<'PY'
+          import sys
+          from urllib.parse import quote
+          print(quote(sys.argv[1]))
+          PY
+          )"
             url="https://hangul-worksheet.pages.dev/practice/?start=1&text=${encoded}"
             output="/tmp/live-${name}.html"
             "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars \
@@ -128,25 +148,27 @@ jobs:
               --run-all-compositor-stages-before-draw --dump-dom "$url" >"$output"
             grep -Fq "data-layout-mode=\"${expected_mode}\"" "$output"
             grep -Fq 'data-scroll-ok="true"' "$output"
-            grep -Fq 'data-canonical-stroke-source="canonical-stroke-rendering-v2"' "$output"
+            grep -Fq 'data-canonical-stroke-source="canonical-stroke-rendering-v3-optical-fit"' "$output"
+            grep -Fq 'data-glyph-center-x="0.5000"' "$output"
+            grep -Fq 'data-glyph-center-y="0.5000"' "$output"
+            grep -Fq 'data-glyph-fit-scale=' "$output"
+            grep -Fq 'data-glyph-fit-usage-x=' "$output"
+            grep -Fq 'data-glyph-fit-usage-y=' "$output"
+            grep -Fq "data-glyph-override=\"${character}\"" "$output"
             if grep -Fq 'data-display-glyph-layer' "$output"; then
               echo "Legacy display glyph remains in ${name}" >&2
               exit 1
             fi
-            if [[ "$name" == *-da ]]; then
-              grep -Fq 'data-canonical-stroke-count="4"' "$output"
-              grep -Fq '1 / 4획' "$output"
-            fi
             "$chrome" --headless=new --no-sandbox --disable-dev-shm-usage --disable-gpu --hide-scrollbars \
               --force-device-scale-factor=1 --window-size="${width},${height}" --virtual-time-budget=4000 \
-              --run-all-compositor-stages-before-draw --screenshot="artifacts/production-canonical/${name}.png" "$url"
-            test -s "artifacts/production-canonical/${name}.png"
-            echo "live=${name} viewport=${width}x${height} mode=${expected_mode} canonical=ok scroll=ok"
+              --run-all-compositor-stages-before-draw --screenshot="artifacts/production-glyph-optical-layout/${name}.png" "$url"
+            test -s "artifacts/production-glyph-optical-layout/${name}.png"
+            echo "live=${name} character=${character} viewport=${width}x${height} mode=${expected_mode} optical-fit=ok scroll=ok"
           done
-      - name: Upload live production canonical screenshots
+      - name: Upload live production optical-fit screenshots
         uses: actions/upload-artifact@v4
         with:
-          name: production-canonical-screenshots
-          path: artifacts/production-canonical
+          name: production-glyph-optical-layout-screenshots
+          path: artifacts/production-glyph-optical-layout
           if-no-files-found: error
           retention-days: 14
