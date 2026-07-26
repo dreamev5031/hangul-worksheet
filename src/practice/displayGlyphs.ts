@@ -35,24 +35,24 @@ interface GlyphTuning {
   fontWeight?: 600 | 700
 }
 
-const SYLLABLE_BOX: DisplayGlyphBox = { x: 0.075, y: 0.065, width: 0.85, height: 0.87 }
-const JAMO_BOX: DisplayGlyphBox = { x: 0.135, y: 0.105, width: 0.73, height: 0.79 }
+const SYLLABLE_BOX: DisplayGlyphBox = { x: 0.14, y: 0.12, width: 0.72, height: 0.76 }
+const JAMO_BOX: DisplayGlyphBox = { x: 0.17, y: 0.14, width: 0.66, height: 0.72 }
 
-// 호환 자모는 운영체제 글꼴마다 폭과 중심이 조금씩 달라 보이므로
-// 표시 레이어에만 작은 광학 보정을 적용합니다. 판정용 획 좌표에는 영향을 주지 않습니다.
+// 호환 자모는 표시 레이어에만 작은 광학 보정을 적용합니다.
+// 판정용 획 좌표와 허용 범위는 이 데이터에 의존하지 않습니다.
 const JAMO_TUNING: Record<string, GlyphTuning> = {
-  'ㅎ': { box: { x: 0.13, y: 0.075, width: 0.74, height: 0.84 }, scaleX: 1.01, scaleY: 1.01, offsetY: -0.004, fontWeight: 700 },
-  'ㅇ': { box: { x: 0.14, y: 0.095, width: 0.72, height: 0.81 }, scaleX: 1.03, scaleY: 1.03, fontWeight: 700 },
-  'ㅅ': { box: { x: 0.13, y: 0.105, width: 0.74, height: 0.79 }, scaleX: 1.04, scaleY: 1.01, offsetY: 0.008, fontWeight: 700 },
-  'ㅈ': { box: { x: 0.12, y: 0.095, width: 0.76, height: 0.81 }, scaleX: 1.02, scaleY: 1.01, fontWeight: 700 },
-  'ㅊ': { box: { x: 0.12, y: 0.075, width: 0.76, height: 0.84 }, scaleX: 1.02, scaleY: 1.01, offsetY: -0.004, fontWeight: 700 },
-  'ㅁ': { box: { x: 0.14, y: 0.105, width: 0.72, height: 0.79 }, scaleX: 0.99, scaleY: 1.01, fontWeight: 700 },
-  'ㅂ': { box: { x: 0.13, y: 0.09, width: 0.74, height: 0.82 }, scaleX: 0.99, scaleY: 1.01, fontWeight: 700 },
-  'ㅏ': { box: { x: 0.19, y: 0.085, width: 0.62, height: 0.83 }, scaleX: 0.94, scaleY: 1.02, fontWeight: 700 },
-  'ㅓ': { box: { x: 0.19, y: 0.085, width: 0.62, height: 0.83 }, scaleX: 0.94, scaleY: 1.02, fontWeight: 700 },
-  'ㅗ': { box: { x: 0.105, y: 0.17, width: 0.79, height: 0.66 }, scaleX: 1.02, scaleY: 0.98, offsetY: -0.006, fontWeight: 700 },
-  'ㅜ': { box: { x: 0.105, y: 0.17, width: 0.79, height: 0.66 }, scaleX: 1.02, scaleY: 0.98, offsetY: 0.006, fontWeight: 700 },
-  'ㅡ': { box: { x: 0.095, y: 0.25, width: 0.81, height: 0.5 }, scaleX: 1.03, scaleY: 0.96, fontWeight: 700 },
+  'ㅎ': { box: { x: 0.18, y: 0.12, width: 0.64, height: 0.76 }, scaleX: 1.01, scaleY: 1.01, offsetY: -0.004, fontWeight: 700 },
+  'ㅇ': { box: { x: 0.18, y: 0.14, width: 0.64, height: 0.72 }, scaleX: 1.03, scaleY: 1.03, fontWeight: 700 },
+  'ㅅ': { box: { x: 0.17, y: 0.15, width: 0.66, height: 0.7 }, scaleX: 1.03, scaleY: 1.01, offsetY: 0.008, fontWeight: 700 },
+  'ㅈ': { box: { x: 0.16, y: 0.14, width: 0.68, height: 0.72 }, scaleX: 1.02, scaleY: 1.01, fontWeight: 700 },
+  'ㅊ': { box: { x: 0.16, y: 0.12, width: 0.68, height: 0.76 }, scaleX: 1.02, scaleY: 1.01, offsetY: -0.004, fontWeight: 700 },
+  'ㅁ': { box: { x: 0.18, y: 0.15, width: 0.64, height: 0.7 }, scaleX: 0.99, scaleY: 1.01, fontWeight: 700 },
+  'ㅂ': { box: { x: 0.17, y: 0.13, width: 0.66, height: 0.74 }, scaleX: 0.99, scaleY: 1.01, fontWeight: 700 },
+  'ㅏ': { box: { x: 0.23, y: 0.12, width: 0.54, height: 0.76 }, scaleX: 0.94, scaleY: 1.02, fontWeight: 700 },
+  'ㅓ': { box: { x: 0.23, y: 0.12, width: 0.54, height: 0.76 }, scaleX: 0.94, scaleY: 1.02, fontWeight: 700 },
+  'ㅗ': { box: { x: 0.15, y: 0.2, width: 0.7, height: 0.6 }, scaleX: 1.02, scaleY: 0.98, offsetY: -0.006, fontWeight: 700 },
+  'ㅜ': { box: { x: 0.15, y: 0.2, width: 0.7, height: 0.6 }, scaleX: 1.02, scaleY: 0.98, offsetY: 0.006, fontWeight: 700 },
+  'ㅡ': { box: { x: 0.14, y: 0.28, width: 0.72, height: 0.44 }, scaleX: 1.03, scaleY: 0.96, fontWeight: 700 },
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -105,40 +105,25 @@ export function drawDisplayGlyph(
 ): void {
   if (!character || width <= 0 || height <= 0) return
   const descriptor = getDisplayGlyphDescriptor(character)
-  const targetWidth = descriptor.box.width * width
-  const targetHeight = descriptor.box.height * height
-  let fontSize = targetHeight
-
-  context.save()
-  context.font = `${descriptor.fontWeight} ${fontSize}px ${DISPLAY_GLYPH_FONT_FAMILY}`
-  let metrics = context.measureText(character)
-  let measuredWidth = Math.max(1, metrics.actualBoundingBoxLeft + metrics.actualBoundingBoxRight, metrics.width)
-  let measuredHeight = Math.max(1, metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent, fontSize * 0.72)
-  fontSize *= Math.min(
-    targetWidth / Math.max(1, measuredWidth * descriptor.scaleX),
-    targetHeight / Math.max(1, measuredHeight * descriptor.scaleY),
+  const side = Math.min(width, height)
+  const targetWidth = descriptor.box.width * width / descriptor.scaleX
+  const targetHeight = descriptor.box.height * height / descriptor.scaleY
+  const fontSize = clamp(
+    Math.min(targetWidth * 0.96, targetHeight * 0.92),
+    side * 0.3,
+    side * 0.72,
   )
-  fontSize = clamp(fontSize, Math.min(width, height) * 0.32, Math.min(width, height) * 0.9)
-
-  context.font = `${descriptor.fontWeight} ${fontSize}px ${DISPLAY_GLYPH_FONT_FAMILY}`
-  metrics = context.measureText(character)
-  measuredWidth = Math.max(1, metrics.actualBoundingBoxLeft + metrics.actualBoundingBoxRight, metrics.width)
-  measuredHeight = Math.max(1, metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent, fontSize * 0.72)
-
   const centerX = (descriptor.box.x + descriptor.box.width / 2 + descriptor.offsetX * descriptor.box.width) * width
   const centerY = (descriptor.box.y + descriptor.box.height / 2 + descriptor.offsetY * descriptor.box.height) * height
-  const visualCenterOffsetX = (metrics.actualBoundingBoxRight - metrics.actualBoundingBoxLeft) / 2
-  const baselineOffsetY = (metrics.actualBoundingBoxAscent - metrics.actualBoundingBoxDescent) / 2
 
+  context.save()
   context.globalAlpha = options.alpha ?? 0.17
   context.fillStyle = options.color ?? '#adc5bb'
+  context.font = `${descriptor.fontWeight} ${fontSize}px ${DISPLAY_GLYPH_FONT_FAMILY}`
   context.textAlign = 'center'
-  context.textBaseline = 'alphabetic'
+  context.textBaseline = 'middle'
   context.translate(centerX, centerY)
   context.scale(descriptor.scaleX, descriptor.scaleY)
-  context.fillText(character, -visualCenterOffsetX, baselineOffsetY)
+  context.fillText(character, 0, 0, targetWidth)
   context.restore()
-
-  void measuredWidth
-  void measuredHeight
 }
