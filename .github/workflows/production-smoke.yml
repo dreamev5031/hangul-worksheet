@@ -28,26 +28,34 @@ jobs:
         run: |
           npm ci
           npm run build
-      - name: Verify Cloudflare Pages production
+      - name: Wait for expected Cloudflare asset
+        id: deployment
         shell: bash
         run: |
           set -euo pipefail
           base='https://hangul-worksheet.pages.dev'
           expected_asset="$(grep -oE 'src=\"/assets/[^\"]+\.js\"' dist/practice/index.html | head -1 | cut -d'"' -f2)"
           test -n "$expected_asset"
+          echo "asset=$expected_asset" >> "$GITHUB_OUTPUT"
 
           success=0
           for attempt in {1..30}; do
-            if curl --fail --silent --show-error --location --max-time 25 "$base/" -o /tmp/home.html \
-              && curl --fail --silent --show-error --location --max-time 25 "$base/practice/" -o /tmp/practice.html \
-              && curl --fail --silent --show-error --location --max-time 25 "$base/privacy/" -o /tmp/privacy.html \
-              && curl --fail --silent --show-error --location --max-time 25 "$base/robots.txt" -o /tmp/robots.txt \
-              && curl --fail --silent --show-error --location --max-time 25 "$base/sitemap.xml" -o /tmp/sitemap.xml \
-              && grep -Fq "$expected_asset" /tmp/practice.html; then
+            home_status="$(curl --silent --show-error --location --max-time 25 --output /tmp/home.html --write-out '%{http_code}' "$base/" || true)"
+            practice_status="$(curl --silent --show-error --location --max-time 25 --output /tmp/practice.html --write-out '%{http_code}' "$base/practice/" || true)"
+            privacy_status="$(curl --silent --show-error --location --max-time 25 --output /tmp/privacy.html --write-out '%{http_code}' "$base/privacy/" || true)"
+            robots_status="$(curl --silent --show-error --location --max-time 25 --output /tmp/robots.txt --write-out '%{http_code}' "$base/robots.txt" || true)"
+            sitemap_status="$(curl --silent --show-error --location --max-time 25 --output /tmp/sitemap.xml --write-out '%{http_code}' "$base/sitemap.xml" || true)"
+            current_asset="$(grep -oE 'src=\"/assets/[^\"]+\.js\"' /tmp/practice.html 2>/dev/null | head -1 | cut -d'"' -f2 || true)"
+            echo "attempt=$attempt home=$home_status practice=$practice_status privacy=$privacy_status robots=$robots_status sitemap=$sitemap_status current=$current_asset expected=$expected_asset"
+            if [ "$home_status" = 200 ] \
+              && [ "$practice_status" = 200 ] \
+              && [ "$privacy_status" = 200 ] \
+              && [ "$robots_status" = 200 ] \
+              && [ "$sitemap_status" = 200 ] \
+              && [ "$current_asset" = "$expected_asset" ]; then
               success=1
               break
             fi
-            echo "Production has not reached the expected asset yet: attempt $attempt/30"
             sleep 10
           done
 
@@ -55,22 +63,30 @@ jobs:
             echo "Expected production asset was not observed: $expected_asset" >&2
             exit 1
           fi
-
+      - name: Verify production metadata and routes
+        shell: bash
+        run: |
+          set -euo pipefail
           grep -Fq '<title>화면 한글 따라쓰기 연습 | 오늘의 한글 학습지</title>' /tmp/practice.html
           grep -Fq '한글의 올바른 획순을 한 획씩 안내' /tmp/practice.html
           grep -Fq '<link rel="canonical" href="https://hangul-worksheet.pages.dev/practice/"' /tmp/practice.html
-          grep -Fq '필기 이미지와 실제 획 좌표는 저장하지 않습니다' /tmp/privacy.html
+          grep -Fq '<link rel="canonical" href="https://hangul-worksheet.pages.dev/privacy/"' /tmp/privacy.html
           grep -Fq 'Sitemap: https://hangul-worksheet.pages.dev/sitemap.xml' /tmp/robots.txt
           grep -Fq '<loc>https://hangul-worksheet.pages.dev/practice/</loc>' /tmp/sitemap.xml
-
-          curl --fail --silent --show-error --location --max-time 25 "$base$expected_asset" -o /tmp/app.js
+      - name: Verify production application bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          base='https://hangul-worksheet.pages.dev'
+          asset='${{ steps.deployment.outputs.asset }}'
+          curl --fail --silent --show-error --location --max-time 25 "$base$asset" -o /tmp/app.js
           grep -Fq '획순 연습 시작하기' /tmp/app.js
           grep -Fq '참 잘했어요!' /tmp/app.js
+          grep -Fq '필기 이미지와 실제 획 좌표는 저장하지 않습니다' /tmp/app.js
           grep -Fq 'PDF로 저장' /tmp/app.js
           grep -Fq '인쇄하기' /tmp/app.js
           if grep -Fq '채점하기' /tmp/app.js; then
             echo 'Legacy score action remains in production bundle' >&2
             exit 1
           fi
-
-          echo "Production verified with asset: $expected_asset"
+          echo "Production verified with asset: $asset"
