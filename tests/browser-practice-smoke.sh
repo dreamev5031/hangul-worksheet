@@ -3,7 +3,7 @@ set -euo pipefail
 
 chrome="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser)"
 test -n "$chrome"
-mkdir -p artifacts/practice-glyphs /tmp/practice-browser
+mkdir -p artifacts/canonical-strokes /tmp/practice-browser
 
 python3 -m http.server 4173 --directory dist >/tmp/hangul-browser-http.log 2>&1 &
 server_pid=$!
@@ -13,7 +13,15 @@ for attempt in {1..30}; do
   sleep 0.25
 done
 
-encoded_hwang='%ED%99%A9'
+encode_character() {
+  python3 - "$1" <<'PY'
+import sys
+from urllib.parse import quote
+print(quote(sys.argv[1]))
+PY
+}
+
+encoded_hwang="$(encode_character '황')"
 viewports=(
   '740 360 phone-landscape'
   '844 390 phone-landscape'
@@ -44,7 +52,11 @@ for viewport in "${viewports[@]}"; do
     "http://127.0.0.1:4173/practice/?start=1&text=${encoded_hwang}" >"$output" 2>/tmp/practice-browser/chrome.log
   grep -Fq "data-layout-mode=\"${expected_mode}\"" "$output"
   grep -Fq 'data-scroll-ok="true"' "$output"
-  grep -Fq 'data-display-glyph-layer="display-glyph-layer-v1"' "$output"
+  grep -Fq 'data-canonical-stroke-source="canonical-stroke-rendering-v2"' "$output"
+  if grep -Fq 'data-display-glyph-layer' "$output"; then
+    echo "Legacy display glyph layer remains at ${width}x${height}" >&2
+    exit 1
+  fi
   canvas_side="$(grep -oE 'data-canvas-side="[0-9]+"' "$output" | head -1 | grep -oE '[0-9]+')"
   panel_width="$(grep -oE 'data-panel-width="[0-9]+"' "$output" | head -1 | grep -oE '[0-9]+')"
   actual_height="$(grep -oE -- '--practice-vh: [0-9]+px' "$output" | head -1 | grep -oE '[0-9]+')"
@@ -57,18 +69,26 @@ for viewport in "${viewports[@]}"; do
   else
     test "$panel_width" -ge 240
   fi
-  echo "viewport=${width}x${height} visualHeight=${actual_height} mode=${expected_mode} canvas=${canvas_side} panel=${panel_width} scroll=ok"
+  echo "viewport=${width}x${height} visualHeight=${actual_height} mode=${expected_mode} canvas=${canvas_side} panel=${panel_width} scroll=ok canonical=ok"
 done
 
-samples=('ㄱ' '가' '사' '황' '슬' '김' '민' '준' '하' '호' '우' '히')
-index=1
-for character in "${samples[@]}"; do
-  encoded="$(python3 - "$character" <<'PY'
-import sys
-from urllib.parse import quote
-print(quote(sys.argv[1]))
-PY
-)"
+scenarios=(
+  'tablet-portrait-ba 768 1024 portrait 바'
+  'tablet-portrait-da 768 1024 portrait 다'
+  'tablet-portrait-bam 768 1024 portrait 밤'
+  'tablet-landscape-hwang 1024 768 tablet-landscape 황'
+  'tablet-landscape-seul 1024 768 tablet-landscape 슬'
+  'phone-portrait-da 390 844 portrait 다'
+  'phone-landscape-bam 844 390 phone-landscape 밤'
+)
+
+for scenario in "${scenarios[@]}"; do
+  read -r name width height expected_mode character <<<"$scenario"
+  encoded="$(encode_character "$character")"
+  url="http://127.0.0.1:4173/practice/?start=1&text=${encoded}"
+  dom="/tmp/practice-browser/${name}.html"
+  screenshot="artifacts/canonical-strokes/${name}.png"
+
   "$chrome" \
     --headless=new \
     --no-sandbox \
@@ -76,27 +96,47 @@ PY
     --disable-gpu \
     --hide-scrollbars \
     --force-device-scale-factor=1 \
-    --window-size=1024,768 \
-    --virtual-time-budget=3000 \
+    --window-size="${width},${height}" \
+    --virtual-time-budget=3500 \
     --run-all-compositor-stages-before-draw \
-    --screenshot="artifacts/practice-glyphs/$(printf '%02d' "$index").png" \
-    "http://127.0.0.1:4173/practice/?start=1&text=${encoded}" >/tmp/practice-browser/screenshot.log 2>&1
-  test -s "artifacts/practice-glyphs/$(printf '%02d' "$index").png"
-  index=$((index + 1))
+    --dump-dom \
+    "$url" >"$dom" 2>/tmp/practice-browser/scenario.log
+
+  grep -Fq "data-layout-mode=\"${expected_mode}\"" "$dom"
+  grep -Fq 'data-scroll-ok="true"' "$dom"
+  grep -Fq 'data-canonical-stroke-source="canonical-stroke-rendering-v2"' "$dom"
+  if grep -Fq 'data-display-glyph-layer' "$dom"; then
+    echo "Legacy display glyph layer remains in ${name}" >&2
+    exit 1
+  fi
+  if [ "$character" = '다' ]; then
+    grep -Fq 'data-canonical-stroke-count="4"' "$dom"
+    grep -Fq '1 / 4획' "$dom"
+  fi
+
+  "$chrome" \
+    --headless=new \
+    --no-sandbox \
+    --disable-dev-shm-usage \
+    --disable-gpu \
+    --hide-scrollbars \
+    --force-device-scale-factor=1 \
+    --window-size="${width},${height}" \
+    --virtual-time-budget=3500 \
+    --run-all-compositor-stages-before-draw \
+    --screenshot="$screenshot" \
+    "$url" >/tmp/practice-browser/screenshot.log 2>&1
+  test -s "$screenshot"
+  echo "scenario=${name} character=${character} viewport=${width}x${height} mode=${expected_mode} canonical=ok scroll=ok"
 done
 
-cat > artifacts/practice-glyphs/README.txt <<'TXT'
-01 ㄱ
-02 가
-03 사
-04 황
-05 슬
-06 김
-07 민
-08 준
-09 하
-10 호
-11 우
-12 히
-1024x768 브라우저 렌더링 캡처
+cat > artifacts/canonical-strokes/README.txt <<'TXT'
+tablet-portrait-ba.png: 태블릿 세로 바
+tablet-portrait-da.png: 태블릿 세로 다, 총 4획
+tablet-portrait-bam.png: 태블릿 세로 밤
+tablet-landscape-hwang.png: 태블릿 가로 황
+tablet-landscape-seul.png: 태블릿 가로 슬
+phone-portrait-da.png: 휴대폰 세로 다, 총 4획
+phone-landscape-bam.png: 휴대폰 가로 밤
+모든 화면은 canonical-stroke-rendering-v2 경로만 표시하며 시스템 폰트 완성 글자 레이어가 없어야 한다.
 TXT

@@ -15,6 +15,8 @@ export interface StrokeDirection {
 export interface StrokePath {
   id: string
   points: PracticePoint[]
+  guidePoints: PracticePoint[]
+  waypoints: PracticePoint[]
   start: PracticePoint
   end: PracticePoint
   direction: StrokeDirection
@@ -23,7 +25,7 @@ export interface StrokePath {
   thickness: number
   tolerance: number
   curved: boolean
-  guidePoints: PracticePoint[]
+  preserveAspect: boolean
 }
 
 export interface GeneratedCharacter {
@@ -64,6 +66,7 @@ export interface StrokeValidationConfig {
   maximumLengthRatio: number
   minimumNearRatio: number
   minimumCoverageRatio: number
+  minimumWaypointRatio: number
   minimumDirectionCosine: number
   maximumBoundingArea: number
 }
@@ -73,6 +76,7 @@ export type StrokeFailureReason =
   | 'too-short'
   | 'reverse-direction'
   | 'wrong-location'
+  | 'missed-turn'
   | 'off-path'
   | 'scribble'
 
@@ -82,6 +86,7 @@ export interface StrokeValidationMetrics {
   directionCosine: number
   nearRatio: number
   coverageRatio: number
+  waypointRatio: number
   lengthRatio: number
   boundingArea: number
 }
