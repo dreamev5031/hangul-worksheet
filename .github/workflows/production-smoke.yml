@@ -9,6 +9,7 @@ on:
       - main
     paths:
       - '.github/workflows/production-smoke.yml'
+      - '.github/scripts/live_pointer_validation.py'
   workflow_dispatch:
 
 permissions:
@@ -17,7 +18,7 @@ permissions:
 jobs:
   production-smoke:
     runs-on: ubuntu-latest
-    timeout-minutes: 28
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -103,11 +104,12 @@ jobs:
             exit 1
           fi
           echo "Production optical-fit bundle verified: $asset"
-      - name: Install Korean UI font for readable screenshots
+      - name: Install Korean UI font and CDP client
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq fonts-noto-cjk
+          sudo apt-get install -y -qq fonts-noto-cjk python3-websocket
           fc-cache -f
+          python3 -c 'import websocket; print(websocket.__version__)'
       - name: Verify live optical-fit glyph screens
         shell: bash
         run: |
@@ -165,6 +167,65 @@ jobs:
             test -s "artifacts/production-glyph-optical-layout/${name}.png"
             echo "live=${name} character=${character} viewport=${width}x${height} mode=${expected_mode} optical-fit=ok scroll=ok"
           done
+      - name: Prepare canonical path for live pointer validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf .test-dist
+          mkdir -p .test-dist
+          printf '{"type":"commonjs"}' > .test-dist/package.json
+          npx tsc -p tsconfig.test.json
+          node <<'NODE'
+          const fs = require('node:fs')
+          const { generateCharacterStrokes } = require('./.test-dist/syllableLayout.js')
+          const generated = generateCharacterStrokes('다')
+          if (!generated || generated.strokes.length !== 4) throw new Error('다 canonical 4획 생성 실패')
+          const first = generated.strokes[0]
+          fs.writeFileSync('/tmp/da-first-stroke.json', JSON.stringify({
+            id: first.id,
+            guidePoints: first.guidePoints.map(({ x, y }) => ({ x, y })),
+          }))
+          console.log(`prepared-live-path id=${first.id} points=${first.guidePoints.length}`)
+          NODE
+          test -s /tmp/da-first-stroke.json
+      - name: Verify live pointerup auto-validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          chrome="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser)"
+          rm -rf /tmp/hangul-cdp-profile
+          "$chrome" \
+            --headless=new \
+            --no-sandbox \
+            --disable-dev-shm-usage \
+            --disable-gpu \
+            --hide-scrollbars \
+            --remote-debugging-port=9222 \
+            --remote-allow-origins='*' \
+            --user-data-dir=/tmp/hangul-cdp-profile \
+            --window-size=390,844 \
+            about:blank >/tmp/chrome-cdp.log 2>&1 &
+          cdp_pid=$!
+          cleanup() { kill "$cdp_pid" 2>/dev/null || true; }
+          trap cleanup EXIT
+          ready=0
+          for attempt in {1..40}; do
+            if curl --fail --silent http://127.0.0.1:9222/json/version >/tmp/cdp-version.json; then
+              ready=1
+              break
+            fi
+            sleep 0.25
+          done
+          if [ "$ready" -ne 1 ]; then
+            cat /tmp/chrome-cdp.log >&2 || true
+            exit 1
+          fi
+          NO_PROXY=127.0.0.1,localhost no_proxy=127.0.0.1,localhost \
+            python3 .github/scripts/live_pointer_validation.py \
+              --debug-port 9222 \
+              --path-json /tmp/da-first-stroke.json \
+              --screenshot artifacts/production-glyph-optical-layout/live-da-after-first-stroke.png
+          test -s artifacts/production-glyph-optical-layout/live-da-after-first-stroke.png
       - name: Upload live production optical-fit screenshots
         uses: actions/upload-artifact@v4
         with:
